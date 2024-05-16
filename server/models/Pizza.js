@@ -2,8 +2,10 @@ const mongoose = require('mongoose');
 
 const pizzaSchema = new mongoose.Schema({
   name: String,
-  ingredients: String,
-  price: Number
+  menu_number: Number,
+  ingredients: [Number],
+  price: Number,
+  has_been_ordered_count: Number
 });
 
 module.exports = mongoose.model('Pizzas', pizzaSchema);
