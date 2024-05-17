@@ -1,6 +1,7 @@
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
+const Pizza = require("../models/Pizza");
 const ObjectId = mongoose.Types.ObjectId;
 
 function generateId(length) {
@@ -172,3 +173,47 @@ exports.getAllClientOrders = asyncHandler(async (req, res) => {
     res.status(500).json({error: error.message});
   }
 })
+
+exports.getAvailablePizzas = asyncHandler(async (req, res) => {
+  try {
+    const pizzas = await Pizza.aggregate([
+      {
+        $lookup: {
+          from: "ingredients",
+          localField: "ingredients",
+          foreignField: "id",
+          as: "ingredientsDetails"
+        }
+      },
+      {
+        $addFields: {
+          availableIngredients: {
+            $filter: {
+              input: "$ingredientsDetails",
+              as: "ingredient",
+              cond: { $eq: ["$$ingredient.onStock", true] }
+            }
+          }
+        }
+      },
+      {
+        $match: {
+          $expr: { $eq: [{ $size: "$availableIngredients" }, { $size: "$ingredientsDetails" }] }
+        }
+      },
+      {
+        $project: {
+          has_been_ordered_count: 1,
+          availableIngredients: 1,
+          name: 1,
+          price: 1,
+          menu_number: 1
+        }
+      }
+    ]);
+    res.status(200).json(pizzas);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({error: error.message});
+  }
+});
