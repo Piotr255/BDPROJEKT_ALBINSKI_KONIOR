@@ -4,7 +4,7 @@ import {Badge, ListGroup, Button} from "react-bootstrap";
 
 const OrderPizza = ({fetchPost, userId}) => {
 
-  const {data: pizzas, loading: loading, error: error} = useFetch('http://localhost:9000/admin/pizzas');
+  const {data: pizzas, loading: loading, error: error} = useFetch('http://localhost:9000/client/available_pizzas');
   const [pizzasInBasket, setPizzasInBasket] = useState([]);
   const [statusMessage, setStatusMessage] = useState(null);
   const [fetchPostError, setFetchPostError] = useState(null);
@@ -61,13 +61,13 @@ const OrderPizza = ({fetchPost, userId}) => {
     <div>
       <ListGroup as="ol" numbered>
         {pizzas && pizzas
-          .filter((pizza) => pizza.ingredients.filter((item) => item.onStock === false).length === 0)
+          .filter((pizza) => pizza.availableIngredients.filter((item) => item.onStock === false).length === 0)
           .map(pizza => (
           <ListGroup.Item key={pizza.menu_number} as="li"
                           className="d-flex justify-content-between align-items-start">
             <div className="ms-2 me-auto">
               <div className="fw-bold">{pizza.name}</div>
-              Składniki: {pizza.ingredients.map((item) => item.name).join(", ")}, Cena: {pizza.price}
+              Składniki: {pizza.availableIngredients.map((item) => item.name).join(", ")}, Cena: {pizza.price}
             </div>
             <Badge bg="success" className="me-2 badge-hover" onClick={() => addToBasket(pizza.menu_number)} pill>
               +

@@ -1,6 +1,7 @@
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
+const Ingredient = require("../models/Ingredient");
 const ObjectId = mongoose.Types.ObjectId;
 
 exports.showCurrentOrders = asyncHandler(async (req, res) => {
@@ -89,5 +90,23 @@ exports.showCurrentOrders = asyncHandler(async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).send({error: error.message});
+  }
+});
+
+exports.getIngredients = asyncHandler(async (req, res) => {
+  try {
+    const ingredients = await Ingredient.find();
+    res.status(200).json(ingredients);
+  } catch (err) {
+    res.status(500).json({error: 'An error occurred while fetching ingredients' });
+  }
+});
+
+exports.changeIngredientsStatus = asyncHandler(async (req, res) => {
+  try {
+    await Ingredient.updateOne({id: req.body.id},
+      {onStock: req.body.new_status});
+  } catch (error) {
+    res.status(500).json({error: error.message});
   }
 });

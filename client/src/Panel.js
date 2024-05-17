@@ -4,6 +4,7 @@ import AddPizza from "./AdminPanelComponents/AddPizza";
 import ShowPizzas from "./AdminPanelComponents/ShowPizzas";
 import AddIngredient from "./AdminPanelComponents/AddIngredient";
 import MyOrders from "./ClientPanelComponents/MyOrders";
+import UpdateIngredientsStatus from "./EmployeePanelComponents/UpdateIngredientsStatus";
 
 const Panel = ({userType, userId, fetchPost}) => {
   const [chosenPanel, setChosenPanel] = useState(null);
@@ -17,6 +18,9 @@ const Panel = ({userType, userId, fetchPost}) => {
       {userType === 'Admin' && (
         <h1>Panel administratora</h1>
       )}
+      {userType === 'Employee' && (
+        <h1>Panel pracownika</h1>
+      )}
 
       {/* Dodatkowy napis */}
       <h3>Wybierz operację: </h3>
@@ -24,15 +28,25 @@ const Panel = ({userType, userId, fetchPost}) => {
       {/* Select - wybór operacji */}
       {userType === 'Client' && (
         <select className="w-100 text-center font-size-24">
+          <option value="Choose-option" onClick={() => setChosenPanel('Nothing')}>Choose option</option>
           <option value="Order-pizza" onClick={() => setChosenPanel('OrderPizza')}>Order pizza</option>
           <option value="My-Orders" onClick={() => setChosenPanel('MyOrders')}>My orders</option>
         </select>
       )}
       {userType === 'Admin' && (
         <select className="w-100 text-center font-size-24">
+          <option value="Choose-option" onClick={() => setChosenPanel('Nothing')}>Choose option</option>
           <option value="Add-pizza" onClick={() => setChosenPanel('AddPizza')}>Add pizza</option>
           <option value="Show-pizzas" onClick={() => setChosenPanel('ShowPizzas')}>Show pizzas</option>
           <option value="Add-ingredient" onClick={() => setChosenPanel('AddIngredient')}>Add ingredient</option>
+        </select>
+      )}
+      {userType === 'Employee' && (
+        <select className="w-100 text-center font-size-24">
+          <option value="Choose-option" onClick={() => setChosenPanel('Nothing')}>Choose option</option>
+          <option value="Update-ingredients-status" onClick={() => setChosenPanel('UpdateIngredientsStatus')}>Change
+            ingredients status
+          </option>
         </select>
       )}
 
@@ -53,6 +67,9 @@ const Panel = ({userType, userId, fetchPost}) => {
       )}
       {userType === 'Admin' && chosenPanel === 'AddIngredient' && (
         <AddIngredient key={1} fetchPost = {fetchPost} />
+      )}
+      {userType === 'Employee' && chosenPanel === 'UpdateIngredientsStatus' && (
+        <UpdateIngredientsStatus key={1} fetchPost = {fetchPost} />
       )}
     </div>
   );
