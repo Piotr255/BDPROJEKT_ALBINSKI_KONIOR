@@ -1,4 +1,4 @@
-const Customer = require('../models/CustomerModel');
+const Customer = require('../models/ClientModel');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
 const Pizza = require("../models/PizzaModel");

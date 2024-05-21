@@ -1,9 +1,11 @@
 const mongoose = require('mongoose');
 
 const customerSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String,
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   address: {
     city: String,
     street: String
@@ -30,4 +32,4 @@ const customerSchema = new mongoose.Schema({
   ]
 });
 
-module.exports = mongoose.model('Customers', customerSchema);
+module.exports = mongoose.model('Clients', customerSchema);

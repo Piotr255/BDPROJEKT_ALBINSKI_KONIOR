@@ -1,4 +1,4 @@
-const Customer = require('../models/CustomerModel');
+const Customer = require('../models/ClientModel');
 const asyncHandler = require("express-async-handler");
 
 const register = asyncHandler(async (req, res) => {
