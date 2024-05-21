@@ -2,6 +2,7 @@ const Pizza = require('../models/Pizza');
 const Ingredient = require('../models/Ingredient');
 const asyncHandler = require("express-async-handler");
 
+
 exports.getAllPizzas = asyncHandler(async (req, res) => {
   try {
     const pizzas = await Pizza.aggregate([
@@ -126,3 +127,28 @@ exports.addPizza = asyncHandler(async (req, res) => {
     res.status(500).json({error: error.message});
   }
 })
+
+exports.getMostBeneficialPizzas = asyncHandler(async (req, res) => {
+  try {
+    const pizzas = await Pizza.aggregate([
+      {
+        $addFields: {
+          total_benefit: { $multiply: ["$price", "$has_been_ordered_count"] }
+        }
+      },
+      {
+        $sort: {
+          total_benefit: -1
+        }
+      },
+      {
+        $limit: req.body.show_pizzas_no
+      }
+    ]);
+    console.log(pizzas);
+    res.status(200).json(pizzas);
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({error: error.message});
+  }
+});

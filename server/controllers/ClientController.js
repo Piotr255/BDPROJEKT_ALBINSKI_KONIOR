@@ -95,6 +95,15 @@ exports.saveOrder = asyncHandler(async (req, res) => {
     console.log(error);
     res.status(500).json({error: error.message});
   }
+  try {
+    for (const pizza of req.body.pizzasInBasket) {
+      await Pizza.updateOne({menu_number: pizza.menu_number},
+        { $inc: { has_been_ordered_count: pizza.count } });
+    }
+  } catch(error) {
+    console.log(error);
+  }
+
 });
 
 exports.getAllClientOrders = asyncHandler(async (req, res) => {
