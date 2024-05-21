@@ -1,7 +1,7 @@
-const Customer = require('../models/Customer');
+const Customer = require('../models/CustomerModel');
 const asyncHandler = require("express-async-handler");
 
-exports.register = asyncHandler(async (req, res) => {
+const register = asyncHandler(async (req, res) => {
   try {
     const existingCustomer = await Customer.findOne({ email: req.body.email });
     if (existingCustomer) {
@@ -25,7 +25,7 @@ exports.register = asyncHandler(async (req, res) => {
   }
 });
 
-exports.login = asyncHandler(async (req, res) => {
+const login = asyncHandler(async (req, res) => {
   try {
     const userData = await Customer.findOne(req.body);
     if (userData) {
@@ -38,3 +38,6 @@ exports.login = asyncHandler(async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+module.exports = { register, login };

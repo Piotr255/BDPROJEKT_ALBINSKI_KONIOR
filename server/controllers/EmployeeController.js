@@ -1,7 +1,7 @@
-const Customer = require('../models/Customer');
+const Customer = require('../models/CustomerModel');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
-const Ingredient = require("../models/Ingredient");
+const Ingredient = require("../models/IngredientModel");
 const ObjectId = mongoose.Types.ObjectId;
 
 exports.showCurrentOrders = asyncHandler(async (req, res) => {

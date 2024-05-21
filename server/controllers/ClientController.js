@@ -1,7 +1,7 @@
-const Customer = require('../models/Customer');
+const Customer = require('../models/CustomerModel');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
-const Pizza = require("../models/Pizza");
+const Pizza = require("../models/PizzaModel");
 const ObjectId = mongoose.Types.ObjectId;
 
 function generateId(length) {

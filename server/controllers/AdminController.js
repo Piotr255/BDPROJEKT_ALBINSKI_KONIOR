@@ -1,5 +1,5 @@
-const Pizza = require('../models/Pizza');
-const Ingredient = require('../models/Ingredient');
+const Pizza = require('../models/PizzaModel');
+const Ingredient = require('../models/IngredientModel');
 const asyncHandler = require("express-async-handler");
 
 
