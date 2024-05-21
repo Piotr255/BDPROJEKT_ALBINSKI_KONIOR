@@ -5,6 +5,7 @@ import ShowPizzas from "./AdminPanelComponents/ShowPizzas";
 import AddIngredient from "./AdminPanelComponents/AddIngredient";
 import MyOrders from "./ClientPanelComponents/MyOrders";
 import UpdateIngredientsStatus from "./EmployeePanelComponents/UpdateIngredientsStatus";
+import MostBeneficialPizzas from "./AdminPanelComponents/MostBeneficialPizzas";
 
 const Panel = ({userType, userId, fetchPost}) => {
   const [chosenPanel, setChosenPanel] = useState(null);
@@ -39,6 +40,7 @@ const Panel = ({userType, userId, fetchPost}) => {
           <option value="Add-pizza" onClick={() => setChosenPanel('AddPizza')}>Add pizza</option>
           <option value="Show-pizzas" onClick={() => setChosenPanel('ShowPizzas')}>Show pizzas</option>
           <option value="Add-ingredient" onClick={() => setChosenPanel('AddIngredient')}>Add ingredient</option>
+          <option value="Show-most-beneficial-pizzas" onClick={() => setChosenPanel('MostBeneficialPizzas')}>Most beneficial pizzas</option>
         </select>
       )}
       {userType === 'Employee' && (
@@ -67,6 +69,9 @@ const Panel = ({userType, userId, fetchPost}) => {
       )}
       {userType === 'Admin' && chosenPanel === 'AddIngredient' && (
         <AddIngredient key={1} fetchPost = {fetchPost} />
+      )}
+      {userType === 'Admin' && chosenPanel === 'MostBeneficialPizzas' && (
+        <MostBeneficialPizzas key={1} fetchPost = {fetchPost} />
       )}
       {userType === 'Employee' && chosenPanel === 'UpdateIngredientsStatus' && (
         <UpdateIngredientsStatus key={1} fetchPost = {fetchPost} />

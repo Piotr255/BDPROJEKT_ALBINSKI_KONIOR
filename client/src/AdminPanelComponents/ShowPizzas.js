@@ -9,7 +9,7 @@ const ShowPizzas = () => {
     <div>
       <ListGroup>
         {pizzas && pizzas.map(pizza => (
-          <ListGroup.Item key={pizza._id} as="li">Nazwa pizzy: {pizza.name}; Składniki: {pizza.ingredients.map((item) => item.name).join(", ")}; Cena: {pizza.price}; Zamówiono razy: {pizza.has_been_ordered_count}</ListGroup.Item>
+          <ListGroup.Item key={pizza._id} as="li">Nazwa pizzy: <b>{pizza.name}</b>; Składniki: <b>{pizza.ingredients.map((item) => item.name).join(", ")}</b>; Cena: <b>{pizza.price}zł</b>; Zamówiono razy: {pizza.has_been_ordered_count}</ListGroup.Item>
         ))}
       </ListGroup>
     </div>
