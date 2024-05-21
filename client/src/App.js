@@ -63,7 +63,22 @@ function App() {
     return panels;
   }
 
-  async function register(event) {
+
+
+  async function register(event, type) {
+    event.preventDefault();
+    const res = await fetchPost("http://localhost:9000/account/register", {
+      name: name,
+      email: email,
+      password: password,
+      type: type,
+      phone: phone,
+      city: city,
+      street: street
+    });
+
+  }
+  /*async function register(event) {
     event.preventDefault();
     const res = await fetchPost("http://localhost:9000/account/register", {
       name: name,

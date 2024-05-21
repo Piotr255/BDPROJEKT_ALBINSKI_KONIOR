@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
-const adminController = require("../controllers/AdminController");
+const {getAllPizzas, addPizza, addIngredient, getAllIngredients, getMostBeneficialPizzas} = require("../controllers/AdminController");
+const validateToken = require("../middleware/validateToken");
+const authorizeAdmin = require("../middleware/authorizeAdmin");
 
-
-
-router.get("/pizzas", adminController.getAllPizzas);
-router.post("/add_pizza", adminController.addPizza);
-router.post("/add_ingredient", adminController.addIngredient);
-router.get("/ingredients", adminController.getAllIngredients);
-router.post("/most_beneficial_pizzas", adminController.getMostBeneficialPizzas)
+router.get("/pizzas", validateToken, authorizeAdmin,  getAllPizzas);
+router.post("/add_pizza", addPizza);
+router.post("/add_ingredient", addIngredient);
+router.get("/ingredients", getAllIngredients);
+router.post("/most_beneficial_pizzas", getMostBeneficialPizzas)
 
 
 module.exports = router;
