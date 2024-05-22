@@ -39,6 +39,7 @@ const registerUser = asyncHandler(async (req, res) => {
                 phone,
                 address: {city: city, street: street}
             });
+            console.log(client);
             if (client) {
                 res.status(201).json({
                     _id: client.user_id,

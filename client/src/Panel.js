@@ -13,7 +13,7 @@ const Panel = ({userType, userId, fetchPost}) => {
   return (
     <div>
       {/* Nagłówek strony - nazwa panelu */}
-      {userType === 'Client' && (
+      {userType === 'client' && (
         <h1>Panel klienta</h1>
       )}
       {userType === 'Admin' && (
@@ -27,7 +27,7 @@ const Panel = ({userType, userId, fetchPost}) => {
       <h3>Wybierz operację: </h3>
 
       {/* Select - wybór operacji */}
-      {userType === 'Client' && (
+      {userType === 'client' && (
         <select className="w-100 text-center font-size-24">
           <option value="Choose-option" onClick={() => setChosenPanel('Nothing')}>Choose option</option>
           <option value="Order-pizza" onClick={() => setChosenPanel('OrderPizza')}>Order pizza</option>
@@ -55,10 +55,10 @@ const Panel = ({userType, userId, fetchPost}) => {
       {/* Dodatkowy tekst */}
       <h3>Formularz/dane operacji: </h3>
 
-      {userType === 'Client' && chosenPanel === 'OrderPizza' && (
+      {userType === 'client' && chosenPanel === 'OrderPizza' && (
         <OrderPizza key={1} fetchPost = {fetchPost} userId={userId} />
       )}
-      {userType === 'Client' && chosenPanel === 'MyOrders' && (
+      {userType === 'client' && chosenPanel === 'MyOrders' && (
         <MyOrders key={1} fetchPost = {fetchPost} userId={userId} />
       )}
       {userType === 'Admin' && chosenPanel === 'AddPizza' && (

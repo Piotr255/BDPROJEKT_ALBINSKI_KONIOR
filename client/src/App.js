@@ -84,39 +84,29 @@ function App() {
 
 
 
-  async function register(event, role) {
+  async function register(event) {
     event.preventDefault();
-    console.log("email:", email);
+      console.log("email:", email);
+      console.log(JSON.stringify({
+        name: name,
+        email: email,
+        password: password,
+        role: "client",
+        phone: phone,
+        city: city,
+        street: street
+      }));
     const res = await fetchPost("http://localhost:9000/user/register", {
       name: name,
       email: email,
       password: password,
-      role: role,
+      role: "client",
       phone: phone,
       city: city,
       street: street
     });
     console.log(res);
   }
-  /*async function register(event) {
-    event.preventDefault();
-    const res = await fetchPost("http://localhost:9000/account/register", {
-      name: name,
-      email: email,
-      password: password,
-      phone: phone,
-      address: {
-        city: city,
-        street: street
-      }
-    });
-    if (!res.error) {
-      setRegistered(true);
-    } else {
-      setError("Istnieje już konto założone na ten email");
-    }
-
-  }*/
 
   async function login(event) {
     event.preventDefault();
@@ -180,47 +170,47 @@ function App() {
         <Form>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Imię</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={name} onChange={(event) => {
               setName(event.target.value);
               setRegistered(false); // Żeby zniknął komunikat o byciu zarejestrowanym
             }}/>
           </Form.Group>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Email</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={email} onChange={(event) => {
               setEmail(event.target.value);
               setRegistered(false);
             }}/>
           </Form.Group>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Hasło</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={password} onChange={(event) => {
               setPassword(event.target.value);
               setRegistered(false);
             }}/>
           </Form.Group>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Miasto</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={city} onChange={(event) => {
               setCity(event.target.value);
               setRegistered(false);
             }}/>
           </Form.Group>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Adres dostaw(ulica i numer domu, mieszkania)</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={street} onChange={(event) => {
               setStreet(event.target.value);
               setRegistered(false);
             }}/>
           </Form.Group>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Kontaktowy numer telefonu</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={phone} onChange={(event) => {
               setPhone(event.target.value);
               setRegistered(false);
             }}/>
           </Form.Group>
-          <Button variant="success" onClick={(event) => register(event,"client")}>Submit</Button>
+          <Button variant="success" onClick={(event) => register(event)}>Submit</Button>
         </Form>
       )}
 
@@ -229,13 +219,13 @@ function App() {
         <Form>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Email</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={email} onChange={(event) => {
               setEmail(event.target.value);
             }}/>
           </Form.Group>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
             <Form.Label>Hasło</Form.Label>
-            <Form.Control type="text" onInput={(event) => {
+            <Form.Control type="text" value={password} onChange={(event) => {
               setPassword(event.target.value);
             }}/>
           </Form.Group>
