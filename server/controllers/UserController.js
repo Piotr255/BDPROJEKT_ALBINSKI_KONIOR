@@ -58,8 +58,6 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
 });
-
-
 const loginUser = asyncHandler(async (req, res) => {
     const {email, password} = req.body;
     if(!email || !password){
@@ -68,7 +66,7 @@ const loginUser = asyncHandler(async (req, res) => {
     }
     const user = await User.findOne({ email });
     if (user && (await bcrypt.compare(password, user.password))) {
-        const accessToken = jwt.sign({user: {name: user.name, email: user.email, id: user.id, role: user.role}},
+        const accessToken = jwt.sign({user: {email: user.email, id: user.id, role: user.role}},
             process.env.ACCESS_TOKEN_SECRET, {expiresIn: "15m"});
         res.status(200).json({accessToken});
     }
@@ -81,7 +79,12 @@ const loginUser = asyncHandler(async (req, res) => {
 
 
 const currentUser = asyncHandler(async (req, res) => {
-    res.json(req.user);
+   // res.json(req.user);
+    const {email, id, role} = req.user;
+    const client = await Client.findOne({user_id: id});
+    console.log(client);
+    res.status(200).json({email, user_id: id, role, name: client.name,
+        phone: client.phone, city: client.address.city, street: client.address.street});
 });
 
 module.exports = {registerUser, loginUser, currentUser};

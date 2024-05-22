@@ -54,6 +54,25 @@ function App() {
     }
   }
 
+  const fetchGet = async (url, token) => {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        return data
+      }
+      return {data, error: null}
+    } catch (error) {
+      return {data: null, error: error.message};
+    }
+  }
+
   function createPanels(numberOfPanels) {
     const panels = [];
     for (let i = 0; i < numberOfPanels; i++) {
@@ -101,33 +120,24 @@ function App() {
 
   async function login(event) {
     event.preventDefault();
-    setError(null);
-    if (email === "admin" && password === "admin") {
-      setUserType("Admin");
-      setUsername("admin");
-      setLoggedIn(true);
-      setChangedAccount(true);
-    } else if (email === "employee" && password === "employee") {
-      setUserType("Employee");
-      setUsername("pracownik");
-      setLoggedIn(true);
-      setChangedAccount(true);
-    } else {
-      const response = await fetchPost("http://localhost:9000/account/login", {
-        email: email,
-        password: password
-      });
-      if (!response.error) {
-        setUserId(response.data._id);
-        setUsername(response.data.name);
-        setUserType("Client");
-        setLoggedIn(true);
-        setChangedAccount(true);
-      } else {
-        setError("Nie znaleziono użytkownika");
-      }
+    const res = await fetchPost("http://localhost:9000/user/login", {
+      email: email,
+      password: password
+    });
+
+    if(!res || !res.data || !res.data.accessToken){
+      console.log(res);
+      setError(res.message);
+      return;
     }
+    const res2 = await fetchGet("http://localhost:9000/user/current", res.data.accessToken);
+    console.log(res2);
+    setUserType(res2.data.role);
+    setUsername(res2.data.name);
+    setUserId(res2.data.id);
+
   }
+
 
   useEffect(() => {
     if (loggedIn && changedAccount) {
