@@ -6,7 +6,7 @@ import AddIngredient from "./AdminPanelComponents/AddIngredient";
 import MyOrders from "./ClientPanelComponents/MyOrders";
 import UpdateIngredientsStatus from "./EmployeePanelComponents/UpdateIngredientsStatus";
 import MostBeneficialPizzas from "./AdminPanelComponents/MostBeneficialPizzas";
-
+import {Form} from "react-bootstrap";
 const Panel = ({userType, userId, fetchPost}) => {
   const [chosenPanel, setChosenPanel] = useState(null);
 
