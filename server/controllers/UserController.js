@@ -35,14 +35,14 @@ const registerUser = asyncHandler(async (req, res) => {
             const user_id = await User.findOne({email}).select("_id");
             const client = await Client.create({
                 name,
-                user_id: user_id,
+                _id: user_id,
                 phone,
                 address: {city: city, street: street}
             });
             console.log(client);
             if (client) {
                 res.status(201).json({
-                    _id: client.user_id,
+                    _id: client._id,
                     name: client.name,
                     email: user.email,
                     phone: client.phone,
@@ -82,10 +82,15 @@ const loginUser = asyncHandler(async (req, res) => {
 const currentUser = asyncHandler(async (req, res) => {
    // res.json(req.user);
     const {email, id, role} = req.user;
-    const client = await Client.findOne({user_id: id});
+    if(role === "admin"){
+        res.status(200).json({email, id, role});
+    } else{
+
+    const client = await Client.findOne({_id: id});
     console.log(client);
-    res.status(200).json({email, user_id: id, role, name: client.name,
+    res.status(200).json({email, id, role, name: client.name,
         phone: client.phone, city: client.address.city, street: client.address.street});
+    }
 });
 
 module.exports = {registerUser, loginUser, currentUser};
