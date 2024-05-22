@@ -46,7 +46,7 @@ function App() {
       });
       const data = await response.json();
       if (!response.ok) {
-        return { data: null, error: data.error || `HTTP error! Status: ${response.status}` };
+        return data
       }
       return {data, error: null}
     } catch (error) {
@@ -72,12 +72,12 @@ function App() {
       name: name,
       email: email,
       password: password,
-      type: type,
+      role: role,
       phone: phone,
       city: city,
       street: street
     });
-
+    console.log(res);
   }
   /*async function register(event) {
     event.preventDefault();
@@ -97,7 +97,7 @@ function App() {
       setError("Istnieje już konto założone na ten email");
     }
 
-  }
+  }*/
 
   async function login(event) {
     event.preventDefault();
@@ -163,6 +163,8 @@ function App() {
         setShowLogForm(false);
       }}>Ukryj</Button>
       <Button onClick={handlePrompt} className="m-3">Ustaw ilość paneli</Button>
+
+
       {error && <p>{error}</p>}
       {showRegForm && (
         <Form>
@@ -170,7 +172,7 @@ function App() {
             <Form.Label>Imię</Form.Label>
             <Form.Control type="text" onInput={(event) => {
               setName(event.target.value);
-              setRegistered(false);
+              setRegistered(false); // Żeby zniknął komunikat o byciu zarejestrowanym
             }}/>
           </Form.Group>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
@@ -208,9 +210,11 @@ function App() {
               setRegistered(false);
             }}/>
           </Form.Group>
-          <Button variant="success" onClick={register}>Submit</Button>
+          <Button variant="success" onClick={(event) => register(event,"client")}>Submit</Button>
         </Form>
       )}
+
+
       {showLogForm && (
         <Form>
           <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
@@ -228,6 +232,8 @@ function App() {
           <Button variant="success" onClick={login}>Submit</Button>
         </Form>
       )}
+
+
       {registered && <p>Zarejestrowano. Można się zalogować.</p>}
       {panelsCount > 0 && createPanels(panelsCount)}
     </div>
