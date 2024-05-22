@@ -1,7 +1,14 @@
+/**
+ * @author pa
+ */
+
+
+
 const Customer = require('../models/ClientModel');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
 const Pizza = require("../models/PizzaModel");
+const User = require("../models/UserModel");
 const ObjectId = mongoose.Types.ObjectId;
 
 function generateId(length) {
@@ -13,9 +20,33 @@ function generateId(length) {
   }
   return result;
 }
+/**
+ * Edit Client Data
+ *
+ * @description Updates the information of an existing client in the system.
+ * PUT request `/client/edit_client_data`. Requires authentication.
+ * @async
+ * @function editClientData
+ * @param {string} req.body.email - The client's email (used for identification).
+ * @param {string} [req.body.name] - The updated name (optional).
+ * @param {string} [req.body.phone] - The updated phone number (optional).
+ * @param {string} [req.body.city] - The updated city (optional).
+ * @param {string} [req.body.street] - The updated street address (optional).
+ */
 
 
-exports.saveOrder = asyncHandler(async (req, res) => {
+const editClientData = asyncHandler(async (req, res) => {
+  const {email, name, phone, city, street} = req.body;
+  const user = await User.findOne({ email });
+    if (!user) {
+        res.status(400);
+        throw new Error("User not found");
+    }
+  User.updateOne({name, email, phone, city, street}, {});
+  res.status(201).json({user});
+});
+
+const saveOrder = asyncHandler(async (req, res) => {
   let customer_next_order_nr;
   try {
     const order_history = await Customer.aggregate([
@@ -106,7 +137,7 @@ exports.saveOrder = asyncHandler(async (req, res) => {
 
 });
 
-exports.getAllClientOrders = asyncHandler(async (req, res) => {
+const getAllClientOrders = asyncHandler(async (req, res) => {
   try {
     const orders = await Customer.aggregate([
       {
@@ -183,7 +214,7 @@ exports.getAllClientOrders = asyncHandler(async (req, res) => {
   }
 })
 
-exports.getAvailablePizzas = asyncHandler(async (req, res) => {
+const getAvailablePizzas = asyncHandler(async (req, res) => {
   try {
     const pizzas = await Pizza.aggregate([
       {
@@ -226,3 +257,5 @@ exports.getAvailablePizzas = asyncHandler(async (req, res) => {
     res.status(500).json({error: error.message});
   }
 });
+
+module.exports = {saveOrder, getAllClientOrders, getAvailablePizzas, editClientData};

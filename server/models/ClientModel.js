@@ -6,6 +6,7 @@ const customerSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  name: String,
   address: {
     city: String,
     street: String

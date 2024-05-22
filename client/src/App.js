@@ -65,9 +65,10 @@ function App() {
 
 
 
-  async function register(event, type) {
+  async function register(event, role) {
     event.preventDefault();
-    const res = await fetchPost("http://localhost:9000/account/register", {
+    console.log("email:", email);
+    const res = await fetchPost("http://localhost:9000/user/register", {
       name: name,
       email: email,
       password: password,
