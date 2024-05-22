@@ -4,11 +4,11 @@ const {getAllPizzas, addPizza, addIngredient, getAllIngredients, getMostBenefici
 const validateToken = require("../middleware/validateToken");
 const authorizeAdmin = require("../middleware/authorizeAdmin");
 
-router.get("/pizzas", validateToken, authorizeAdmin,  getAllPizzas);
-router.post("/add_pizza", validateToken, authorizeAdmin, addPizza);
-router.post("/add_ingredient", validateToken, authorizeAdmin, addIngredient);
-router.get("/ingredients", validateToken, authorizeAdmin, getAllIngredients);
-router.post("/most_beneficial_pizzas", validateToken, authorizeAdmin, getMostBeneficialPizzas)
+router.get("/pizzas", getAllPizzas);
+router.post("/add_pizza", addPizza);
+router.post("/add_ingredient", addIngredient);
+router.get("/ingredients", getAllIngredients);
+router.post("/most_beneficial_pizzas", getMostBeneficialPizzas)
 
 
 module.exports = router;

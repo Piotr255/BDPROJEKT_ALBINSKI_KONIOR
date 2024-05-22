@@ -16,7 +16,7 @@ const Panel = ({userType, userId, fetchPost}) => {
       {userType === 'client' && (
         <h1>Panel klienta</h1>
       )}
-      {userType === 'Admin' && (
+      {userType === 'admin' && (
         <h1>Panel administratora</h1>
       )}
       {userType === 'Employee' && (
@@ -34,7 +34,7 @@ const Panel = ({userType, userId, fetchPost}) => {
           <option value="My-Orders" onClick={() => setChosenPanel('MyOrders')}>My orders</option>
         </select>
       )}
-      {userType === 'Admin' && (
+      {userType === 'admin' && (
         <select className="w-100 text-center font-size-24">
           <option value="Choose-option" onClick={() => setChosenPanel('Nothing')}>Choose option</option>
           <option value="Add-pizza" onClick={() => setChosenPanel('AddPizza')}>Add pizza</option>
@@ -61,16 +61,16 @@ const Panel = ({userType, userId, fetchPost}) => {
       {userType === 'client' && chosenPanel === 'MyOrders' && (
         <MyOrders key={1} fetchPost = {fetchPost} userId={userId} />
       )}
-      {userType === 'Admin' && chosenPanel === 'AddPizza' && (
+      {userType === 'admin' && chosenPanel === 'AddPizza' && (
         <AddPizza key={1} fetchPost = {fetchPost} />
       )}
-      {userType === 'Admin' && chosenPanel === 'ShowPizzas' && (
+      {userType === 'admin' && chosenPanel === 'ShowPizzas' && (
         <ShowPizzas key={1} fetchPost = {fetchPost} />
       )}
-      {userType === 'Admin' && chosenPanel === 'AddIngredient' && (
+      {userType === 'admin' && chosenPanel === 'AddIngredient' && (
         <AddIngredient key={1} fetchPost = {fetchPost} />
       )}
-      {userType === 'Admin' && chosenPanel === 'MostBeneficialPizzas' && (
+      {userType === 'admin' && chosenPanel === 'MostBeneficialPizzas' && (
         <MostBeneficialPizzas key={1} fetchPost = {fetchPost} />
       )}
       {userType === 'Employee' && chosenPanel === 'UpdateIngredientsStatus' && (

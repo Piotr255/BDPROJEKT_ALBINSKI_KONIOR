@@ -121,10 +121,13 @@ function App() {
       return;
     }
     const res2 = await fetchGet("http://localhost:9000/user/current", res.data.accessToken);
+    localStorage.setItem('token', res.data.accessToken);
     console.log(res2);
     setUserType(res2.data.role);
     setUsername(res2.data.name);
     setUserId(res2.data.id);
+    setLoggedIn(true);
+    setChangedAccount(true);
 
   }
 
