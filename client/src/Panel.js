@@ -8,7 +8,10 @@ import UpdateIngredientsStatus from "./EmployeePanelComponents/UpdateIngredients
 import MostBeneficialPizzas from "./AdminPanelComponents/MostBeneficialPizzas";
 import {Form} from "react-bootstrap";
 const Panel = ({userType, userId, fetchPost}) => {
-  const [chosenPanel, setChosenPanel] = useState(null);
+  const [chosenPanel, setChosenPanel] = useState('');
+    useEffect(() => {
+        console.log(chosenPanel);
+    }, [chosenPanel]);
 
   return (
     <div>
@@ -34,15 +37,15 @@ const Panel = ({userType, userId, fetchPost}) => {
           <option value="My-Orders" onClick={() => setChosenPanel('MyOrders')}>My orders</option>
         </select>
       )}
-      {userType === 'admin' && (
-        <select className="w-100 text-center font-size-24">
-          <option value="Choose-option" onClick={() => setChosenPanel('Nothing')}>Choose option</option>
-          <option value="Add-pizza" onClick={() => setChosenPanel('AddPizza')}>Add pizza</option>
-          <option value="Show-pizzas" onClick={() => setChosenPanel('ShowPizzas')}>Show pizzas</option>
-          <option value="Add-ingredient" onClick={() => setChosenPanel('AddIngredient')}>Add ingredient</option>
-          <option value="Show-most-beneficial-pizzas" onClick={() => setChosenPanel('MostBeneficialPizzas')}>Most beneficial pizzas</option>
-        </select>
-      )}
+        {userType === 'admin' && (
+            <Form.Select className="w-100 text-center" onChange={(event) => setChosenPanel(event.target.value)}>
+                <option value="Nothing">Choose option</option>
+                <option value="AddPizza">Add pizza</option>
+                <option value="ShowPizzas">Show pizzas</option>
+                <option value="AddIngredient">Add ingredient</option>
+                <option value="MostBeneficialPizzas">Most beneficial pizzas</option>
+            </Form.Select>
+        )}
       {userType === 'Employee' && (
         <select className="w-100 text-center font-size-24">
           <option value="Choose-option" onClick={() => setChosenPanel('Nothing')}>Choose option</option>

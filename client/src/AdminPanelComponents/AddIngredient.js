@@ -2,7 +2,6 @@ import React, {useState} from 'react';
 import {Button, Form} from "react-bootstrap";
 
 const AddIngredient = ({fetchPost}) => {
-
   const [ingredientName, setIngredientName] = useState("");
   const [error, setError] = useState(null);
   const [statusMessage, setStatusMessage] = useState(null);
