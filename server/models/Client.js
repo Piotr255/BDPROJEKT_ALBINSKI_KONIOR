@@ -4,7 +4,6 @@ const addressSchema = require('./Address');
 const clientSchema = new mongoose.Schema({
     name: {
         type: String,
-        minLength: 10,
         required: true
     },
     phone: {
