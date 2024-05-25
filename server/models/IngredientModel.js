@@ -1,3 +1,4 @@
+/*
 const mongoose = require('mongoose');
 
 const ingredientSchema = new mongoose.Schema({
@@ -6,4 +7,4 @@ const ingredientSchema = new mongoose.Schema({
   onStock: Boolean
 });
 
-module.exports = mongoose.model('Ingredients', ingredientSchema);
+module.exports = mongoose.model('Ingredients', ingredientSchema);*/

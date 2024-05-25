@@ -4,7 +4,7 @@ const discountSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    pizza_id: {
+    pizza_ids: {
         type: [Number],
         required: true
     },

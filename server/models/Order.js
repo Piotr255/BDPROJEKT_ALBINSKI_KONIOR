@@ -15,7 +15,7 @@ const orderSchema = new mongoose.Schema({
     deliverer_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Workers',
-        required: true
+        required: false
     },
     pizzas: [
         {

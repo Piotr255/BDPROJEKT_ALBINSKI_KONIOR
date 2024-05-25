@@ -1,3 +1,4 @@
+/*
 const Customer = require('../models/ClientModel');
 const asyncHandler = require("express-async-handler");
 
@@ -40,4 +41,4 @@ const login = asyncHandler(async (req, res) => {
 });
 
 
-module.exports = { register, login };
+module.exports = { register, login };*/

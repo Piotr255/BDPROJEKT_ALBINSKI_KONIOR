@@ -22,6 +22,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
             throw new Error("User already exists");
         }
         const hashedPassword = await bcrypt.hash(password, 10);
+        console.log(hashedPassword);
         const user = await User.create([{ //tworzymy użytkownika
             email,
             password: hashedPassword,

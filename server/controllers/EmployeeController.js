@@ -1,9 +1,10 @@
-const Customer = require('../models/ClientModel');
+const Customer = require('../models/Client');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
-const Ingredient = require("../models/IngredientModel");
+const Ingredient = require("../models/Ingredient");
 const ObjectId = mongoose.Types.ObjectId;
 
+/*
 exports.showCurrentOrders = asyncHandler(async (req, res) => {
   try {
     const current_orders = Customer.aggregate([
@@ -56,7 +57,7 @@ exports.showCurrentOrders = asyncHandler(async (req, res) => {
           order_date: { $first: "$order_history.order_date" },
           pizza_name: { $first: "$pizza_details.name" },
           pizza_price: { $first: "$pizza_details.price" },
-          pizza_count: { $first: "$order_history.pizzas.count" },  // Dodanie liczby pizz
+          pizza_count: { $first: "$order_history.pizzas.count" },
           ingredients: { $push: "$ingredient_details.name" },
           pizza_price_total: { $sum: { $multiply: ["$pizza_details.price", "$order_history.pizzas.count"] } }
         }
@@ -76,7 +77,7 @@ exports.showCurrentOrders = asyncHandler(async (req, res) => {
             $push: {
               name: "$pizza_name",
               price: "$pizza_price",
-              count: "$pizza_count",  // Dodanie ilości do wyników
+              count: "$pizza_count",
               ingredients: "$ingredients"
             }
           }
@@ -109,4 +110,25 @@ exports.changeIngredientsStatus = asyncHandler(async (req, res) => {
   } catch (error) {
     res.status(500).json({error: error.message});
   }
+});*/
+
+const updateIngredientStatus = asyncHandler(async (req, res, next) => {
+  try {
+    const { name, new_status } = req.body;
+    const the_ingredient = await Ingredient.findOne({name: name});
+    if (!the_ingredient) {
+      res.status(400);
+      throw new Error("Ingredient doesn't exist");
+    }
+    await Ingredient.updateOne({name: name}, {available: new_status});
+    res.status(201).json({
+      message: 'Ingredient status updated',
+      name,
+      new_status
+    });
+  } catch(err) {
+    next(err);
+  }
 });
+
+module.exports = { updateIngredientStatus };
