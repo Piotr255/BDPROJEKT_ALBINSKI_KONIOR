@@ -16,10 +16,10 @@ connectDb();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
-// app.use("/admin", AdminRouter);
+app.use("/admin", AdminRouter);
 // app.use("/account", AccountRouter);
-// app.use("/client", ClientRouter);
-// app.use("/employee", EmployeeRouter);
+app.use("/client", ClientRouter);
+app.use("/employee", EmployeeRouter);
 app.use("/user", UserRouter);
 app.use(errorHandler);
 app.listen(port, () => {

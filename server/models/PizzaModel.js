@@ -1,3 +1,4 @@
+/*
 const mongoose = require('mongoose');
 
 const pizzaSchema = new mongoose.Schema({
@@ -8,4 +9,4 @@ const pizzaSchema = new mongoose.Schema({
   has_been_ordered_count: Number
 });
 
-module.exports = mongoose.model('Pizzas', pizzaSchema);
+module.exports = mongoose.model('Pizzas', pizzaSchema);*/

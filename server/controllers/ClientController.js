@@ -1,17 +1,14 @@
 /**
  * @author pa
  */
-
-
-
-const Customer = require('../models/ClientModel');
+const Client = require('../models/Client');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
-const Pizza = require("../models/PizzaModel");
-const User = require("../models/UserModel");
+const Pizza = require("../models/Pizza");
+const User = require("../models/User");
 const ObjectId = mongoose.Types.ObjectId;
 
-function generateId(length) {
+/*function generateId(length) {
   let result = '';
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   const charactersLength = characters.length;
@@ -20,7 +17,7 @@ function generateId(length) {
   }
   return result;
 }
-/**
+/!**
  * Edit Client Data
  *
  * @description Updates the information of an existing client in the system.
@@ -32,7 +29,7 @@ function generateId(length) {
  * @param {string} [req.body.phone] - The updated phone number (optional).
  * @param {string} [req.body.city] - The updated city (optional).
  * @param {string} [req.body.street] - The updated street address (optional).
- */
+ *!/
 
 
 const editClientData = asyncHandler(async (req, res) => {
@@ -212,16 +209,16 @@ const getAllClientOrders = asyncHandler(async (req, res) => {
     console.log(error);
     res.status(500).json({error: error.message});
   }
-})
+})*/
 
-const getAvailablePizzas = asyncHandler(async (req, res) => {
+const getAvailablePizzas = asyncHandler(async (req, res, next) => {
   try {
     const pizzas = await Pizza.aggregate([
       {
         $lookup: {
           from: "ingredients",
           localField: "ingredients",
-          foreignField: "id",
+          foreignField: "ingredient_nr",
           as: "ingredientsDetails"
         }
       },
@@ -231,7 +228,7 @@ const getAvailablePizzas = asyncHandler(async (req, res) => {
             $filter: {
               input: "$ingredientsDetails",
               as: "ingredient",
-              cond: { $eq: ["$$ingredient.onStock", true] }
+              cond: { $eq: ["$$ingredient.available", true] }
             }
           }
         }
@@ -243,19 +240,18 @@ const getAvailablePizzas = asyncHandler(async (req, res) => {
       },
       {
         $project: {
-          has_been_ordered_count: 1,
-          availableIngredients: 1,
+          menu_number: 1,
           name: 1,
           price: 1,
-          menu_number: 1
+          ingredients: 1,
+          available: 1
         }
       }
     ]);
     res.status(200).json(pizzas);
   } catch (error) {
-    console.log(error);
-    res.status(500).json({error: error.message});
+    next(error);
   }
 });
 
-module.exports = {saveOrder, getAllClientOrders, getAvailablePizzas, editClientData};
+module.exports = { getAvailablePizzas };

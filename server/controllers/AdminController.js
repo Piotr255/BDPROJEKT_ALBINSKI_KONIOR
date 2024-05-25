@@ -1,8 +1,15 @@
-const Pizza = require('../models/PizzaModel');
-const Ingredient = require('../models/IngredientModel');
+const Pizza = require('../models/Pizza');
+const Ingredient = require('../models/Ingredient');
+const Discount = require('../models/Discount');
+const User = require('../models/User');
+const Worker = require('../models/Worker');
 const asyncHandler = require("express-async-handler");
+const addressSchema = require("../models/Address");
+const mongoose = require("mongoose");
+const bcrypt = require("bcrypt");
 
 
+/*
 exports.getAllPizzas = asyncHandler(async (req, res) => {
   try {
     const pizzas = await Pizza.aggregate([
@@ -151,4 +158,320 @@ exports.getMostBeneficialPizzas = asyncHandler(async (req, res) => {
     console.log(error);
     res.status(500).json({error: error.message});
   }
+});*/
+
+// name: {
+//   type: String,
+//     required: true
+// },
+// menu_number: {
+//   type: Number,
+//     required: true
+// },
+// ingredients: {
+//   type: [Number],
+//     required: true
+// },
+// price: {
+//   type: Number,
+//     required: true
+// },
+// available: {
+//   type: Boolean,
+//     required: true
+// },
+// grades: {
+//   points_sum: {
+//     type: Number,
+//   default: 0
+//   },
+//   grade_count: {
+//     type: Number,
+//       required: true
+//   }
+// }
+
+const addIngredient = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const {name, vegan, vegetarian, available} = req.body;
+    const existingIngredient = await Ingredient.findOne({name: name}, null, { session });
+    if (existingIngredient) {
+      res.status(400);
+      throw new Error("Ingredient already exists");
+    }
+    const next_ingredient_nr_query = await Ingredient.aggregate([
+      {
+        $sort: { ingredient_nr: -1 }
+      },
+      {
+        $limit: 1
+      }
+    ]).session(session);
+    const next_ingredient_nr = next_ingredient_nr_query.length > 0 ? next_ingredient_nr_query[0].ingredient_nr + 1 : 1;
+    await Ingredient.create([{
+      ingredient_nr: next_ingredient_nr,
+      name,
+      vegan,
+      vegetarian,
+      available
+    }], { session });
+
+    await session.commitTransaction();
+    res.status(200).json({
+      message: 'Ingredient saved',
+      name,
+      vegan,
+      vegetarian,
+      available
+    })
+  } catch(err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
 });
+
+const addPizza = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const {name, ingredients, price, available} = req.body;
+    const existingPizzaWithName = await Pizza.findOne({name: name}, null, {session});
+    if (existingPizzaWithName) {
+      res.status(400);
+      throw new Error("There is already a pizza with this name");
+    }
+    const existingPizzaWithIngredients = await Pizza.aggregate([
+      {
+        $project: {
+          isSameIngredients: { $setEquals: ["$ingredients", ingredients] }
+        }
+      },
+      {
+        $match: {
+          isSameIngredients: true
+        }
+      }
+    ],{session});
+    if (existingPizzaWithIngredients.length > 0) {
+      res.status(400);
+      throw new Error("There is already a pizza with this set of ingredients");
+    }
+    const ingredientsExist = await Ingredient.aggregate([
+      {
+        $match: { ingredient_nr: { $in: ingredients } }
+      },
+      {
+        $group: {
+          _id: null,
+          matchedIngredientsCount: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          ingredientsExist: { $eq: ["$matchedIngredientsCount", ingredients.length] }
+        }
+      },
+      {
+        $match: {
+          ingredientsExist: true
+        }
+      }
+    ], {session});
+    if (ingredientsExist.length === 0) {
+      throw new Error("At least one of the given ingredients doesn't exist");
+    }
+    const next_menu_number_query = await Pizza.aggregate([
+      {
+        $sort: { menu_number: -1 }
+      },
+      {
+        $limit: 1
+      }
+    ], {session});
+    const next_menu_number = next_menu_number_query.length > 0 ? next_menu_number_query[0].menu_number + 1 : 1;
+    await Pizza.create([{
+      name,
+      menu_number: next_menu_number,
+      ingredients,
+      price,
+      available
+    }], {session});
+
+    await session.commitTransaction();
+    res.status(200).json({
+      message: "Pizza saved",
+      name,
+      ingredients,
+      price,
+      available
+    })
+  } catch(err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
+});
+
+// name: {
+//   type: String,
+//     required: true
+// },
+// pizza_ids: {
+//   type: [Number],
+//     required: true
+// },
+// value: {
+//   type: Number,
+//     required: true
+// },
+// start_date: {
+//   type: Date,
+//     required: true
+// },
+// end_date: {
+//   type: Date,
+//     required: true
+// },
+// used_count: {
+//   type: Number,
+// default: 0
+// }
+
+const addDiscount = asyncHandler(async (req, res, next) => {
+  try {
+    const {name, pizza_ids, value, start_date, end_date} = req.body;
+    const existingName = await Discount.findOne({name: name});
+    if (existingName) {
+      res.status(400);
+      throw new Error("Discount name already exists");
+    }
+    const pizza_idsExist = await Pizza.aggregate([
+      {
+        $match: { menu_number: { $in: pizza_ids } }
+      },
+      {
+        $group: {
+          _id: null,
+          matchedPizzasCount: { $sum: 1 }
+        }
+      },
+      {
+        $project: {
+          pizzasExist: { $eq: ["$matchedPizzasCount", pizza_ids.length] }
+        }
+      },
+      {
+        $match: {
+          pizzasExist: true
+        }
+      }
+    ]);
+    if (pizza_idsExist.length === 0) {
+      res.status(400);
+      throw new Error("At least one of the given pizzas doesn't exist");
+    }
+    if (value > 1 || value < 0) {
+      res.status(400);
+      throw new Error("Invalid discount value");
+    }
+    const start_date_DATE = new Date(start_date).toISOString();
+    const end_date_DATE = new Date(end_date).toISOString();
+    if (end_date_DATE < start_date_DATE) {
+      res.status(400);
+      throw new Error("Invalid dates");
+    }
+    await Discount.create({
+      name,
+      pizza_ids,
+      value,
+      start_date: start_date_DATE,
+      end_date: end_date_DATE
+    });
+    res.status(200).json({
+      message: "Discount saved",
+      name,
+      pizza_ids,
+      value,
+      start_date,
+      end_date
+    })
+  } catch(err) {
+    next(err);
+  }
+});
+
+// name: {
+//   type: String,
+//     required: true
+// },
+// salary: {
+//   type: Number,
+//     required: true
+// },
+// phone: {
+//   type: String,
+//     required: true
+// },
+// address: {
+//   type: addressSchema,
+//     required: true
+// },
+// status: {
+//   type: String,
+//     required: true
+// },
+// current_orders: {
+//   type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+// default: []
+// },
+// order_history: {
+//   type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+// default: []
+// }
+
+const registerEmployee = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const { email, password, name, salary, phone, address, status } = req.body;
+    if (!email || !password || !name || !salary || !phone || !address || !status) {
+      res.status(400);
+      throw new Error("Please fill in all fields");
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await User.create([{
+      email,
+      password: hashedPassword,
+      role: "employee"
+    }], {session});
+    await Worker.create([{
+      name,
+      salary,
+      phone,
+      address,
+      status
+    }], {session});
+    res.status(200).json({
+      message: 'Employee registered',
+      name,
+      email,
+      salary,
+      phone,
+      address,
+      status
+    });
+    await session.commitTransaction();
+  } catch(err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
+});
+
+module.exports = { addPizza, addIngredient, addDiscount, registerEmployee };

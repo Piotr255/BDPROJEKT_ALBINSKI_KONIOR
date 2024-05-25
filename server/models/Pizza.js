@@ -6,7 +6,9 @@ const pizzaSchema = new mongoose.Schema({
     },
     menu_number: {
         type: Number,
-        required: true
+        required: true,
+        default: 1,
+        autoIncrement: true
     },
     ingredients: {
         type: [Number],
@@ -27,7 +29,7 @@ const pizzaSchema = new mongoose.Schema({
         },
         grade_count: {
             type: Number,
-            required: true
+            default: 0
         }
     }
 });
