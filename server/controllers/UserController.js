@@ -17,7 +17,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
             throw new Error("Please fill in all fields");
         }
 
-        const userAvailable = await User.findOne({ email }); // sprawdzamy czy istnieje użytkownik o podanym emailu
+        const userAvailable = await User.findOne({ email }, { session }); // sprawdzamy czy istnieje użytkownik o podanym emailu
         if (userAvailable) {
             throw new Error("User already exists");
         }
@@ -89,7 +89,7 @@ const deleteUser = asyncHandler(async (req, res) => {
             res.status(400);
             throw new Error("Please fill in all fields");
         }
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }, { session });
         if (user && (await bcrypt.compare(password, user.password))) {
             await User.deleteOne({email});
             await Client.deleteOne({_id: user.id});

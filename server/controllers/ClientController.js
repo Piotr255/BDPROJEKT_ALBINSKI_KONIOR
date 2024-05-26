@@ -254,4 +254,32 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { getAvailablePizzas };
+
+
+async function checkPizzasAvailability(basket, res) {
+  const pizzaIds = basket.map(item => item.id);
+  const pizzas = await Pizza.find({ _id: { $in: pizzaIds } });
+
+  const unavailablePizzas = pizzas.filter(pizza => !pizza.available);
+
+  if (unavailablePizzas.length > 0) {
+    const unavailablePizzaNames = unavailablePizzas.map(pizza => pizza.name).join(', ');
+    res.status(400);
+    throw new Error(`Pizzas ${unavailablePizzaNames} aren't available. We can't make an order.`);
+  }
+}
+
+
+const makeOrder = asyncHandler(async (req, res, next) => {
+  const {email, id, role} = req.user;
+  const { basket }= req.body; // basket: [id1: count1, id2: count2, ...]
+  if (role !== "client") {
+    res.status(401);
+    throw new Error("Unauthorized");
+  }
+  await checkPizzasAvailability(basket, res);
+  res.status(200).json({ message: "Order placed." })
+});
+
+
+module.exports = { getAvailablePizzas, makeOrder };

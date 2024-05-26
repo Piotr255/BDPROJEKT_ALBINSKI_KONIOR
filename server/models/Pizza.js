@@ -9,8 +9,11 @@ const pizzaSchema = new mongoose.Schema({
         required: true
     },
     ingredients: {
-        type: [Number],
-        required: true
+        type:[{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Ingredients'
+        }],
+        default: []
     },
     price: {
         type: Number,

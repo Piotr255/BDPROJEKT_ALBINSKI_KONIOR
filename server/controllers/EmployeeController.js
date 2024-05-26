@@ -2,7 +2,9 @@ const Customer = require('../models/Client');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
 const Ingredient = require("../models/Ingredient");
+const Pizza = require("../models/Pizza");
 const ObjectId = mongoose.Types.ObjectId;
+
 
 /*
 exports.showCurrentOrders = asyncHandler(async (req, res) => {
@@ -113,6 +115,8 @@ exports.changeIngredientsStatus = asyncHandler(async (req, res) => {
 });*/
 
 const updateIngredientStatus = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
   try {
     const { name, new_status } = req.body;
     const the_ingredient = await Ingredient.findOne({name: name});
@@ -120,14 +124,36 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("Ingredient doesn't exist");
     }
-    await Ingredient.updateOne({name: name}, {available: new_status});
-    res.status(201).json({
-      message: 'Ingredient status updated',
-      name,
-      new_status
-    });
+    await Ingredient.updateOne({id: id}, {available: new_status}, { session });
+    const pizzasWithIngredient = await Pizza.aggregate([
+      { $match: { ingredients: id } },
+    ], { session });
+
+    for (const pizza of pizzasWithIngredient) {
+      let allOtherIngredientsAvailable = true;
+      if (new_status){
+        const otherIngredients = pizza.ingredients.filter(id => !id.equals(ingredientId));
+
+        const allOtherIngredientsAvailable = await Ingredient.countDocuments(
+            { _id: { $in: otherIngredients }, available: true },
+            { session }
+        ) === otherIngredients.length;
+      }
+      if (allOtherIngredientsAvailable) {
+        await Pizza.updateOne(
+            { _id: pizza._id },
+            { $set: { available: newStatus } },
+            { session }
+        );
+      res.status(201).json({message: `${the_ingredient.name} status updated`});
+      await session.commitTransaction();
+      }
+    }
   } catch(err) {
+    await session.abortTransaction();
     next(err);
+  } finally {
+    await session.endSession();
   }
 });
 
