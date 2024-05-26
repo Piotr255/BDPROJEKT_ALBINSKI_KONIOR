@@ -240,21 +240,14 @@ po zmianie
 
 ### addIngredient (dodanie nowego składnika pizzy do bazy)
 
-#### Użycie transakcji
-Używamy transakcji, ponieważ admin mógłby w tym samym momencie próbować dodać dwa składniki, co skutkowałoby dodaniem dwóch składników o tym samym ingredient_nr(choć teoretycznie jest jeden admin, więc to nie powinno się wydarzyć)
-
 ```js
 const addIngredient = asyncHandler(async (req, res, next) => {
-  const session = await mongoose.startSession();
-
-  // otwarcie transakcji
-  await session.startTransaction();
 
   try {
     const {name, vegan, vegetarian, available} = req.body;
 
     // walidacja
-    const existingIngredient = await Ingredient.findOne({name: name}, null, { session });
+    const existingIngredient = await Ingredient.findOne({name: name});
     if (existingIngredient) {
       res.status(400);
       throw new Error("Ingredient already exists");
@@ -268,20 +261,18 @@ const addIngredient = asyncHandler(async (req, res, next) => {
       {
         $limit: 1
       }
-    ]).session(session);
+    ]);
     const next_ingredient_nr = next_ingredient_nr_query.length > 0 ? next_ingredient_nr_query[0].ingredient_nr + 1 : 1;
 
     // dodanie składnika do bazy
-    await Ingredient.create([{
+    await Ingredient.create({
       ingredient_nr: next_ingredient_nr,
       name,
       vegan,
       vegetarian,
       available
-    }], { session });
+    });
 
-    // zatwierdzenie transakcji
-    await session.commitTransaction();
     res.status(200).json({
       message: 'Ingredient saved',
       name,
@@ -290,11 +281,7 @@ const addIngredient = asyncHandler(async (req, res, next) => {
       available
     })
   } catch(err) {
-    // odrzucenie transakcji w razie błędu
-    await session.abortTransaction();
     next(err);
-  } finally {
-    await session.endSession();
   }
 });
 ```
@@ -307,20 +294,14 @@ i papryka się nie dodała drugi raz.
 
 ### addPizza (dodanie nowej pizzy do bazy)
 
-#### Użycie transakcji
-Używamy transakcji analogicznie jak wyżej, ale tym razem dodajemy pizzę, a nie składnik
-
 ```js
 const addPizza = asyncHandler(async (req, res, next) => {
-  const session = await mongoose.startSession();
-
-  //otwarcie transakcji
-  await session.startTransaction();
+  
   try {
     const {name, ingredients, price, available} = req.body;
 
     //walidacja
-    const existingPizzaWithName = await Pizza.findOne({name: name}, null, {session});
+    const existingPizzaWithName = await Pizza.findOne({name: name});
     if (existingPizzaWithName) {
       res.status(400);
       throw new Error("There is already a pizza with this name");
@@ -336,7 +317,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
           isSameIngredients: true
         }
       }
-    ], {session});
+    ]);
     if (existingPizzaWithIngredients.length > 0) {
       res.status(400);
       throw new Error("There is already a pizza with this set of ingredients");
@@ -345,7 +326,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
     // sprawdzamy, czy wszystkie składniki, które zostały podane, istnieją w bazie w następujący sposób
     // 1) szukamy w bazie wszystkich składników, które zostały podane
     // 2) zliczamy ilość znalezionych w bazie składników
-    // 3) sprawdzamy, czy znaleźliśmy tyle składników ile jest w bazie(zakładamy, że nie mamy w bazie dwóch składników o tym samym ingredient_nr, zapewniamy to przez przetwarzanie transakcyjne przy dodawaniu nowego składnika)
+    // 3) sprawdzamy, czy znaleźliśmy tyle składników ile jest w bazie(zakładamy, że nie mamy w bazie dwóch składników o tym samym ingredient_nr)
     const ingredientsExist = await Ingredient.aggregate([
       {
         $match: { ingredient_nr: { $in: ingredients } }
@@ -366,7 +347,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
           ingredientsExist: true
         }
       }
-    ], {session});
+    ]);
     if (ingredientsExist.length === 0) {
       throw new Error("At least one of the given ingredients doesn't exist");
     }
@@ -379,19 +360,17 @@ const addPizza = asyncHandler(async (req, res, next) => {
       {
         $limit: 1
       }
-    ], {session});
+    ]);
     const next_menu_number = next_menu_number_query.length > 0 ? next_menu_number_query[0].menu_number + 1 : 1;
     
     // dodajemy pizzę
-    await Pizza.create([{
+    await Pizza.create({
       name,
       menu_number: next_menu_number,
       ingredients,
       price,
       available
-    }], {session});
-
-    await session.commitTransaction();
+    });
     res.status(200).json({
       message: "Pizza saved",
       name,
@@ -400,10 +379,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
       available
     })
   } catch(err) {
-    await session.abortTransaction();
     next(err);
-  } finally {
-    await session.endSession();
   }
 });
 ```
