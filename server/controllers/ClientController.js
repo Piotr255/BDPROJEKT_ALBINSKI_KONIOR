@@ -1,6 +1,7 @@
 /**
  * @author pa
  */
+const Grade = require('../models/Grade');
 const Order = require('../models/Order');
 const Client = require('../models/Client');
 const mongoose = require('mongoose');
@@ -324,34 +325,67 @@ async function checkPizzasAvailability(basket, res) {
 //     required: false
 // }
 const makeOrder = asyncHandler(async (req, res, next) => {
-  const {email, id, role} = req.user;
-  const { basket, order_date, employee_id, order_notes } = req.body; // basket: [{pizza_id: ObjectId, count: Number}, {pizza_id: ObjectId, count: Number}, ...]
-  if (role !== "client") {
-    res.status(401);
-    throw new Error("Unauthorized");
-  }
-  if (basket.length === 0) {
-    res.status(400);
-    throw new Error("We do not accept empty orders");
-  }
-  const employee_id_ObjId = new ObjectId(employee_id);
-  await checkPizzasAvailability(basket, res);
-  const clientData = await Client.findOne({_id: id});
-  /*const pizzas = basket.map(item => ({
-      pizza_id: item.id,
-      count: item.count
-  }));*/
-  await Order.create({
-    client_id: id,
-    employee_id: employee_id_ObjId,
-    pizzas: basket,
-    client_address: clientData.address,
-    order_notes,
-    order_date
-  });
+  try {
+    const {email, id, role} = req.user;
+    const { basket, order_date, employee_id, order_notes } = req.body; // basket: [{pizza_id: ObjectId, count: Number}, {pizza_id: ObjectId, count: Number}, ...]
+    if (role !== "client") {
+      res.status(401);
+      throw new Error("Unauthorized");
+    }
+    if (basket.length === 0) {
+      res.status(400);
+      throw new Error("We do not accept empty orders");
+    }
+    const employee_id_ObjId = new ObjectId(employee_id);
+    await checkPizzasAvailability(basket, res);
+    const clientData = await Client.findOne({_id: id});
+    /*const pizzas = basket.map(item => ({
+        pizza_id: item.id,
+        count: item.count
+    }));*/
+    await Order.create({
+      client_id: id,
+      employee_id: employee_id_ObjId,
+      pizzas: basket,
+      client_address: clientData.address,
+      order_notes,
+      order_date
+    });
 
-  res.status(200).json({ message: "Order placed." })
+    res.status(200).json({
+      message: "Order placed.",
+      client_id: id,
+      employee_id: employee_id_ObjId,
+      pizzas: basket,
+      client_address: clientData.address,
+      order_notes,
+      order_date
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const rateOrder = asyncHandler(async (req, res, next) => {
+  try {
+    const {email, id, role} = req.user;
+    const { grade_for_food, grade_for_service, comment } = req.body;
+    await Order.updateOne({ client_id: id }, {$set: {grade:
+        {
+          grade_for_food: grade_for_food,
+          grade_for_service: grade_for_service,
+          comment: comment
+        }}});
+    res.status(200).json({
+      message: "Order has been rated",
+      grade_for_food,
+      grade_for_service,
+      comment
+    });
+  } catch (err) {
+    next(err);
+  }
 });
 
 
-module.exports = { getAvailablePizzas, makeOrder };
+module.exports = { getAvailablePizzas, makeOrder, rateOrder };
