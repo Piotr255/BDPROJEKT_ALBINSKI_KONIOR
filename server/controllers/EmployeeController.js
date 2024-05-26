@@ -118,13 +118,14 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
   try {
-    const { id, new_status } = req.body;
-    const the_ingredient = await Ingredient.findOne({id: id});
+    let { id, new_status } = req.body;
+    id = new ObjectId(id);
+    const the_ingredient = await Ingredient.findOne({_id: id});
     if (!the_ingredient) {
       res.status(400);
       throw new Error("Ingredient doesn't exist");
     }
-    await Ingredient.updateOne({id: id}, {available: new_status}, { session });
+    await Ingredient.updateOne({_id: id}, {available: new_status}, { session });
     const pizzasWithIngredient = await Pizza.aggregate([
       { $match: { ingredients: id } },
     ], { session });
@@ -132,9 +133,9 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
     for (const pizza of pizzasWithIngredient) {
       let allOtherIngredientsAvailable = true;
       if (new_status){
-        const otherIngredients = pizza.ingredients.filter(id => !id.equals(ingredientId));
+        const otherIngredients = pizza.ingredients.filter(ingredient_id => !ingredient_id.equals(id));
 
-        const allOtherIngredientsAvailable = await Ingredient.countDocuments(
+        allOtherIngredientsAvailable = await Ingredient.countDocuments(
             { _id: { $in: otherIngredients }, available: true },
             { session }
         ) === otherIngredients.length;
@@ -142,13 +143,13 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
       if (allOtherIngredientsAvailable) {
         await Pizza.updateOne(
             { _id: pizza._id },
-            { $set: { available: newStatus } },
+            { $set: { available: new_status } },
             { session }
         );
-      res.status(201).json({message: `${the_ingredient.name} status updated`});
-      await session.commitTransaction();
       }
     }
+    await session.commitTransaction();
+    res.status(201).json({message: `${the_ingredient.name} status updated`});
   } catch(err) {
     await session.abortTransaction();
     next(err);

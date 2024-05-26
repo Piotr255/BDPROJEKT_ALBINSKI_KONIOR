@@ -211,7 +211,7 @@ const getAllClientOrders = asyncHandler(async (req, res) => {
   }
 })*/
 
-const getAvailablePizzas = asyncHandler(async (req, res, next) => {
+/*const getAvailablePizzas = asyncHandler(async (req, res, next) => {
   try {
     const pizzas = await Pizza.aggregate([
       {
@@ -252,9 +252,16 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});*/
+
+const getAvailablePizzas = asyncHandler(async (req, res, next) => {
+  try {
+    const pizzas = await Pizza.find({available: true}, 'name menu_number ingredients price available');
+    res.status(200).json(pizzas);
+  } catch (err) {
+    next(err);
+  }
 });
-
-
 
 async function checkPizzasAvailability(basket, res) {
   const pizzaIds = basket.map(item => item.id);

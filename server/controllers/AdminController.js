@@ -7,6 +7,7 @@ const asyncHandler = require("express-async-handler");
 const addressSchema = require("../models/Address");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const ObjectId = mongoose.Types.ObjectId;
 
 
 /*
@@ -199,17 +200,7 @@ const addIngredient = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("Ingredient already exists");
     }
-    const next_ingredient_nr_query = await Ingredient.aggregate([
-      {
-        $sort: { ingredient_nr: -1 }
-      },
-      {
-        $limit: 1
-      }
-    ]);
-    const next_ingredient_nr = next_ingredient_nr_query.length > 0 ? next_ingredient_nr_query[0].ingredient_nr + 1 : 1;
     await Ingredient.create({
-      ingredient_nr: next_ingredient_nr,
       name,
       vegan,
       vegetarian,
@@ -236,10 +227,11 @@ const addPizza = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("There is already a pizza with this name");
     }
+    const ingredients_ObjId = ingredients.map((ingredient) => new ObjectId(ingredient))
     const existingPizzaWithIngredients = await Pizza.aggregate([
       {
         $project: {
-          isSameIngredients: { $setEquals: ["$ingredients", ingredients] }
+          isSameIngredients: { $setEquals: ["$ingredients", ingredients_ObjId] }
         }
       },
       {
@@ -254,7 +246,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
     }
     const ingredientsExist = await Ingredient.aggregate([
       {
-        $match: { ingredient_nr: { $in: ingredients } }
+        $match: { _id: { $in: ingredients_ObjId } }
       },
       {
         $group: {
@@ -264,7 +256,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
       },
       {
         $project: {
-          ingredientsExist: { $eq: ["$matchedIngredientsCount", ingredients.length] }
+          ingredientsExist: { $eq: ["$matchedIngredientsCount", ingredients_ObjId.length] }
         }
       },
       {
@@ -288,7 +280,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
     await Pizza.create({
       name,
       menu_number: next_menu_number,
-      ingredients,
+      ingredients: ingredients_ObjId,
       price,
       available
     });
@@ -296,7 +288,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
     res.status(200).json({
       message: "Pizza saved",
       name,
-      ingredients,
+      ingredients_ObjId,
       price,
       available
     })
