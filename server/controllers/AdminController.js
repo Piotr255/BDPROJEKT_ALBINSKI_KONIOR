@@ -192,11 +192,9 @@ exports.getMostBeneficialPizzas = asyncHandler(async (req, res) => {
 // }
 
 const addIngredient = asyncHandler(async (req, res, next) => {
-  const session = await mongoose.startSession();
-  await session.startTransaction();
   try {
     const {name, vegan, vegetarian, available} = req.body;
-    const existingIngredient = await Ingredient.findOne({name: name}, null, { session });
+    const existingIngredient = await Ingredient.findOne({name: name});
     if (existingIngredient) {
       res.status(400);
       throw new Error("Ingredient already exists");
@@ -208,17 +206,16 @@ const addIngredient = asyncHandler(async (req, res, next) => {
       {
         $limit: 1
       }
-    ]).session(session);
+    ]);
     const next_ingredient_nr = next_ingredient_nr_query.length > 0 ? next_ingredient_nr_query[0].ingredient_nr + 1 : 1;
-    await Ingredient.create([{
+    await Ingredient.create({
       ingredient_nr: next_ingredient_nr,
       name,
       vegan,
       vegetarian,
       available
-    }], { session });
+    });
 
-    await session.commitTransaction();
     res.status(200).json({
       message: 'Ingredient saved',
       name,
@@ -227,19 +224,14 @@ const addIngredient = asyncHandler(async (req, res, next) => {
       available
     })
   } catch(err) {
-    await session.abortTransaction();
     next(err);
-  } finally {
-    await session.endSession();
   }
 });
 
 const addPizza = asyncHandler(async (req, res, next) => {
-  const session = await mongoose.startSession();
-  await session.startTransaction();
   try {
     const {name, ingredients, price, available} = req.body;
-    const existingPizzaWithName = await Pizza.findOne({name: name}, null, {session});
+    const existingPizzaWithName = await Pizza.findOne({name: name});
     if (existingPizzaWithName) {
       res.status(400);
       throw new Error("There is already a pizza with this name");
@@ -255,7 +247,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
           isSameIngredients: true
         }
       }
-    ],{session});
+    ]);
     if (existingPizzaWithIngredients.length > 0) {
       res.status(400);
       throw new Error("There is already a pizza with this set of ingredients");
@@ -280,7 +272,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
           ingredientsExist: true
         }
       }
-    ], {session});
+    ]);
     if (ingredientsExist.length === 0) {
       throw new Error("At least one of the given ingredients doesn't exist");
     }
@@ -291,17 +283,16 @@ const addPizza = asyncHandler(async (req, res, next) => {
       {
         $limit: 1
       }
-    ], {session});
+    ]);
     const next_menu_number = next_menu_number_query.length > 0 ? next_menu_number_query[0].menu_number + 1 : 1;
-    await Pizza.create([{
+    await Pizza.create({
       name,
       menu_number: next_menu_number,
       ingredients,
       price,
       available
-    }], {session});
+    });
 
-    await session.commitTransaction();
     res.status(200).json({
       message: "Pizza saved",
       name,
@@ -310,10 +301,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
       available
     })
   } catch(err) {
-    await session.abortTransaction();
     next(err);
-  } finally {
-    await session.endSession();
   }
 });
 
