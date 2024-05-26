@@ -101,11 +101,11 @@ const registerClient = asyncHandler(async (req, res, next) => {
 
 ```
 
-![](image.png)
+![](report_screens/image.png)
 clients
-![](image-1.png)
+![](report_screens/image-1.png)
 users
-![](image-2.png)
+![](report_screens/image-2.png)
 
 ### loginUser 
 Logujemy użytkownika. Tworzymy klucz JWT potrzebny do dostępu dla innych endpointów.
@@ -129,7 +129,7 @@ const loginUser = asyncHandler(async (req, res) => {
     };
 });
 ```
-![](image-3.png)
+![](report_screens/image-3.png)
 
 ### deleteUser (delete)
 Podobnie jak tworzyliśmy użytkownika, tutaj też potrzebujemy zastosować transakcję.
@@ -165,8 +165,8 @@ const deleteUser = asyncHandler(async (req, res) => {
     }
 });
 ```
-![](image-4.png)
-![](image-5.png)
+![](report_screens/image-4.png)
+![](report_screens/image-5.png)
 Po wykonaniu tej operacji ten użytkownik znika z obu kolekcji
 
 
@@ -204,7 +204,7 @@ const currentUser = asyncHandler(async (req, res) => {
 ```
 
 
-![](image-6.png)
+![](report_screens/image-6.png)
 
 
 ### changePassword (update)
@@ -230,11 +230,11 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 ```
 
-![](image-7.png)
-![](image-8.png)
-![](image-9.png)
+![](report_screens/image-7.png)
+![](report_screens/image-8.png)
+![](report_screens/image-9.png)
 po zmianie
-![](image-10.png)
+![](report_screens/image-10.png)
 
 
 
@@ -268,11 +268,11 @@ const addIngredient = asyncHandler(async (req, res, next) => {
   }
 });
 ```
-![](image-39.png)
-![](image-40.png)
+![](report_screens/image-39.png)
+![](report_screens/image-40.png)
 
 A gdy spróbuję ponownie zrobić to samo:
-![](image-41.png)
+![](report_screens/image-41.png)
 i cebula się nie dodała drugi raz.
 
 // sprawdzamy, czy wszystkie składniki, które zostały podane, istnieją w bazie w następujący sposób
@@ -361,13 +361,13 @@ const addPizza = asyncHandler(async (req, res, next) => {
   }
 });
 ```
-![](image-42.png)
-![](image-43.png)
+![](report_screens/image-42.png)
+![](report_screens/image-43.png)
 
 Teraz przetestujmy po kolei obsługę błędów:
-![](image-44.png)
-![](image-45.png)
-![](image-46.png)
+![](report_screens/image-44.png)
+![](report_screens/image-45.png)
+![](report_screens/image-46.png)
 
 
 ### addDiscount (dodanie nowej zniżki do bazy)
@@ -447,13 +447,13 @@ const addDiscount = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](image-20.png)
-![](image-21.png)
+![](report_screens/image-20.png)
+![](report_screens/image-21.png)
 Teraz przetestujmy obłsugę błędów:
-![](image-22.png)
-![](image-23.png)
-![](image-24.png)
-![](image-25.png)
+![](report_screens/image-22.png)
+![](report_screens/image-23.png)
+![](report_screens/image-24.png)
+![](report_screens/image-25.png)
 
 ### registerEmployee (rejestrowanie pracownika przez admina)
 
@@ -502,9 +502,9 @@ const registerEmployee = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](image-26.png)
-![](image-29.png)
-![](image-28.png)
+![](report_screens/image-26.png)
+![](report_screens/image-29.png)
+![](report_screens/image-28.png)
 
 ### getAvailablePizzas (pobranie pizz, które są aktualnie dostępne)
 
@@ -519,8 +519,8 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](image-47.png)
-![](image-48.png)
+![](report_screens/image-47.png)
+![](report_screens/image-48.png)
 
 ### updateIngredientStatus (aktualizacja dostępności składnika)
 
@@ -581,11 +581,11 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](image-50.png)
-![](image-51.png)
+![](report_screens/image-50.png)
+![](report_screens/image-51.png)
 (Obie pizze zawierają Sos pomidorowy)
-![](image-52.png)
-![](image-53.png)
-![](image-54.png)
-![](image-55.png)
-![](image-56.png)
+![](report_screens/image-52.png)
+![](report_screens/image-53.png)
+![](report_screens/image-54.png)
+![](report_screens/image-55.png)
+![](report_screens/image-56.png)

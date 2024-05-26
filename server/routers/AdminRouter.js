@@ -3,7 +3,7 @@ const router = express.Router();
 const { addPizza,
     addIngredient,
     addDiscount,
-    registerEmployee} = require("../controllers/AdminController");
+    registerWorker} = require("../controllers/AdminController");
 const validateToken = require("../middleware/validateToken");
 const authorizeAdmin = require("../middleware/authorizeAdmin");
 
@@ -15,6 +15,6 @@ router.post("/most_beneficial_pizzas", getMostBeneficialPizzas)*/
 router.post("/add_pizza", validateToken, authorizeAdmin, addPizza);
 router.post("/add_ingredient", validateToken, authorizeAdmin, addIngredient);
 router.post("/add_discount", validateToken, authorizeAdmin, addDiscount);
-router.post("/register_employee", validateToken, authorizeAdmin, registerEmployee);
+router.post("/register_worker", validateToken, authorizeAdmin, registerWorker);
 
 module.exports = router;

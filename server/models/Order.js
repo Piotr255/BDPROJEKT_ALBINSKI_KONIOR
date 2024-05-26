@@ -45,6 +45,14 @@ const orderSchema = new mongoose.Schema({
     grade : {
         type: gradeSchema,
         required: false
+    },
+    status: {
+        type: String,
+        required: true
+    },
+    to_deliver: {
+        type: Boolean,
+        required: true
     }
 
 }, {timestamps: true});

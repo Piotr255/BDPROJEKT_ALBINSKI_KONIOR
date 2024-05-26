@@ -5,6 +5,10 @@ const workerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    worker_type: {
+        type: String,
+        required: true
+    },
     salary: {
         type: Number,
         required: true
@@ -29,6 +33,7 @@ const workerSchema = new mongoose.Schema({
         type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
         default: []
     }
+
 });
 
 module.exports = mongoose.model('Workers', workerSchema);

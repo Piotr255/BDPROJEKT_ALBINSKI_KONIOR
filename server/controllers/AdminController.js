@@ -227,7 +227,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("There is already a pizza with this name");
     }
-    const ingredients_ObjId = ingredients.map((ingredient) => new ObjectId(ingredient))
+    const ingredients_ObjId = ingredients.map((ingredient) => new ObjectId(ingredient));
     const existingPizzaWithIngredients = await Pizza.aggregate([
       {
         $project: {
@@ -414,12 +414,12 @@ const addDiscount = asyncHandler(async (req, res, next) => {
 // default: []
 // }
 
-const registerEmployee = asyncHandler(async (req, res, next) => {
+const registerWorker = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
   try {
-    const { email, password, name, salary, phone, address, status } = req.body;
-    if (!email || !password || !name || !salary || !phone || !address || !status) {
+    const { email, password, name, salary, phone, address, status, worker_type } = req.body;
+    if (!email || !password || !name || !salary || !phone || !address || !status || !worker_type) {
       res.status(400);
       throw new Error("Please fill in all fields");
     }
@@ -427,17 +427,18 @@ const registerEmployee = asyncHandler(async (req, res, next) => {
     await User.create([{
       email,
       password: hashedPassword,
-      role: "employee"
+      role: "worker"
     }], {session});
     await Worker.create([{
       name,
+      worker_type,
       salary,
       phone,
       address,
       status
     }], {session});
     res.status(200).json({
-      message: 'Employee registered',
+      message: 'Worker registered',
       name,
       email,
       salary,
@@ -454,4 +455,4 @@ const registerEmployee = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { addPizza, addIngredient, addDiscount, registerEmployee };
+module.exports = { addPizza, addIngredient, addDiscount, registerWorker};
