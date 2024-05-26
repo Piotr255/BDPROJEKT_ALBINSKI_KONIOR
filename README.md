@@ -242,31 +242,14 @@ po zmianie
 
 ```js
 const addIngredient = asyncHandler(async (req, res, next) => {
-
   try {
     const {name, vegan, vegetarian, available} = req.body;
-
-    // walidacja
     const existingIngredient = await Ingredient.findOne({name: name});
     if (existingIngredient) {
       res.status(400);
       throw new Error("Ingredient already exists");
     }
-
-    // nadanie kolejnego ingredient_nr w bazie na podstawie obecnych
-    const next_ingredient_nr_query = await Ingredient.aggregate([
-      {
-        $sort: { ingredient_nr: -1 }
-      },
-      {
-        $limit: 1
-      }
-    ]);
-    const next_ingredient_nr = next_ingredient_nr_query.length > 0 ? next_ingredient_nr_query[0].ingredient_nr + 1 : 1;
-
-    // dodanie składnika do bazy
     await Ingredient.create({
-      ingredient_nr: next_ingredient_nr,
       name,
       vegan,
       vegetarian,
@@ -285,31 +268,34 @@ const addIngredient = asyncHandler(async (req, res, next) => {
   }
 });
 ```
-![](image-11.png)
-![](image-13.png)
+![](image-39.png)
+![](image-40.png)
 
 A gdy spróbuję ponownie zrobić to samo:
-![](image-14.png)
-i papryka się nie dodała drugi raz.
+![](image-41.png)
+i cebula się nie dodała drugi raz.
+
+// sprawdzamy, czy wszystkie składniki, które zostały podane, istnieją w bazie w następujący sposób
+    // 1) szukamy w bazie wszystkich składników, które zostały podane
+    // 2) zliczamy ilość znalezionych w bazie składników
+    // 3) sprawdzamy, czy znaleźliśmy tyle składników ile jest w bazie(zakładamy, że nie mamy w bazie dwóch składników o tym samym ingredient_nr)
 
 ### addPizza (dodanie nowej pizzy do bazy)
 
 ```js
 const addPizza = asyncHandler(async (req, res, next) => {
-  
   try {
     const {name, ingredients, price, available} = req.body;
-
-    //walidacja
     const existingPizzaWithName = await Pizza.findOne({name: name});
     if (existingPizzaWithName) {
       res.status(400);
       throw new Error("There is already a pizza with this name");
     }
+    const ingredients_ObjId = ingredients.map((ingredient) => new ObjectId(ingredient))
     const existingPizzaWithIngredients = await Pizza.aggregate([
       {
         $project: {
-          isSameIngredients: { $setEquals: ["$ingredients", ingredients] }
+          isSameIngredients: { $setEquals: ["$ingredients", ingredients_ObjId] }
         }
       },
       {
@@ -322,14 +308,9 @@ const addPizza = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("There is already a pizza with this set of ingredients");
     }
-
-    // sprawdzamy, czy wszystkie składniki, które zostały podane, istnieją w bazie w następujący sposób
-    // 1) szukamy w bazie wszystkich składników, które zostały podane
-    // 2) zliczamy ilość znalezionych w bazie składników
-    // 3) sprawdzamy, czy znaleźliśmy tyle składników ile jest w bazie(zakładamy, że nie mamy w bazie dwóch składników o tym samym ingredient_nr)
     const ingredientsExist = await Ingredient.aggregate([
       {
-        $match: { ingredient_nr: { $in: ingredients } }
+        $match: { _id: { $in: ingredients_ObjId } }
       },
       {
         $group: {
@@ -339,7 +320,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
       },
       {
         $project: {
-          ingredientsExist: { $eq: ["$matchedIngredientsCount", ingredients.length] }
+          ingredientsExist: { $eq: ["$matchedIngredientsCount", ingredients_ObjId.length] }
         }
       },
       {
@@ -351,8 +332,6 @@ const addPizza = asyncHandler(async (req, res, next) => {
     if (ingredientsExist.length === 0) {
       throw new Error("At least one of the given ingredients doesn't exist");
     }
-
-    // obliczamy nowy menu_number dla pizzy
     const next_menu_number_query = await Pizza.aggregate([
       {
         $sort: { menu_number: -1 }
@@ -362,19 +341,18 @@ const addPizza = asyncHandler(async (req, res, next) => {
       }
     ]);
     const next_menu_number = next_menu_number_query.length > 0 ? next_menu_number_query[0].menu_number + 1 : 1;
-    
-    // dodajemy pizzę
     await Pizza.create({
       name,
       menu_number: next_menu_number,
-      ingredients,
+      ingredients: ingredients_ObjId,
       price,
       available
     });
+
     res.status(200).json({
       message: "Pizza saved",
       name,
-      ingredients,
+      ingredients_ObjId,
       price,
       available
     })
@@ -383,13 +361,13 @@ const addPizza = asyncHandler(async (req, res, next) => {
   }
 });
 ```
-![](image-15.png)
-![](image-16.png)
+![](image-42.png)
+![](image-43.png)
 
 Teraz przetestujmy po kolei obsługę błędów:
-![](image-17.png)
-![](image-18.png)
-![](image-19.png)
+![](image-44.png)
+![](image-45.png)
+![](image-46.png)
 
 
 ### addDiscount (dodanie nowej zniżki do bazy)
@@ -528,87 +506,86 @@ const registerEmployee = asyncHandler(async (req, res, next) => {
 ![](image-29.png)
 ![](image-28.png)
 
-### getAvailablePizzas (pobranie pizz, do których w danym momencie są dostępne składniki)
-
-#### Trochę bardziej złożone zapytanie, pobierające dane z dwóch kolekcji, raportujące
+### getAvailablePizzas (pobranie pizz, które są aktualnie dostępne)
 
 ```js
 const getAvailablePizzas = asyncHandler(async (req, res, next) => {
   try {
-    const pizzas = await Pizza.aggregate([
-      {
-        $lookup: {
-          from: "ingredients",
-          localField: "ingredients", // pole ingredients w Pizza to pole przechowujące tablicę numerów składników
-          foreignField: "ingredient_nr",
-          as: "ingredientsDetails"
-        }
-      },
-      {
-        $addFields: {
-          availableIngredients: {
-            $filter: {
-              input: "$ingredientsDetails",
-              as: "ingredient",
-              cond: { $eq: ["$$ingredient.available", true] }
-            }
-          }
-        }
-      },
-      {
-        $match: {
-          $expr: { $eq: [{ $size: "$availableIngredients" }, { $size: "$ingredientsDetails" }] }
-        }
-      },
-      {
-        $project: {
-          menu_number: 1,
-          name: 1,
-          price: 1,
-          ingredients: 1,
-          available: 1
-        }
-      }
-    ]);
+    const pizzas = await Pizza.find({available: true}, 'name menu_number ingredients price available');
     res.status(200).json(pizzas);
-  } catch (error) {
-    next(error);
-  }
-});
-```
-Przetestujmy:
-Proszę zwrócić uwagę na dostępność składników i składniki w pizzach
-![](image-30.png)
-![](image-33.png)
-![](image-31.png)
-![](image-32.png)
-![](image-34.png)
-
-
-### updateIngredientStatus (aktualizacja dostępności składnika)
-
-```js
-const updateIngredientStatus = asyncHandler(async (req, res, next) => {
-  try {
-    const { name, new_status } = req.body;
-    const the_ingredient = await Ingredient.findOne({name: name});
-    if (!the_ingredient) {
-      res.status(400);
-      throw new Error("Ingredient doesn't exist");
-    }
-    await Ingredient.updateOne({name: name}, {available: new_status});
-    res.status(201).json({
-      message: 'Ingredient status updated',
-      name,
-      new_status
-    });
-  } catch(err) {
+  } catch (err) {
     next(err);
   }
 });
 ```
 
-![](image-35.png)
-![](image-36.png)
-![](image-37.png)
-![](image-38.png)
+![](image-47.png)
+![](image-48.png)
+
+### updateIngredientStatus (aktualizacja dostępności składnika)
+
+#### Użycie transakcji
+Używamy transakcji, ponieważ aktualizujemy dane w dwóch różnych kolekcjach.
+
+```js
+const updateIngredientStatus = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+
+  try {
+    let { id, new_status } = req.body;
+    id = new ObjectId(id);
+
+    const the_ingredient = await Ingredient.findOne({_id: id});
+    if (!the_ingredient) {
+      res.status(400);
+      throw new Error("Ingredient doesn't exist");
+    }
+
+    // aktualizujemy składnik
+    await Ingredient.updateOne({_id: id}, {available: new_status}, { session });
+    const pizzasWithIngredient = await Pizza.aggregate([
+      { $match: { ingredients: id } },
+    ], { session });
+
+    // szukamy pizz, które zawierają ten składnik i aktualizujemy ich pole "available"
+    for (const pizza of pizzasWithIngredient) {
+      let allOtherIngredientsAvailable = true;
+
+      if (new_status){ // tylko jeśli chcemy zmienić dostępność na true, jeśli zmieniamy na false, pomijamy
+        const otherIngredients = pizza.ingredients.filter(ingredient_id => !ingredient_id.equals(id));
+
+        allOtherIngredientsAvailable = await Ingredient.countDocuments(
+            { _id: { $in: otherIngredients }, available: true },
+            { session }
+        ) === otherIngredients.length;
+      }
+      // jeśli new_status na false, po prostu wszystkim pizzom ustawiamy available na false. 
+      // w przeciwnym wypadku sprawdzamy to co wyżej, czyli czy wszystkie składniki mają available na true
+      if (allOtherIngredientsAvailable) {
+        await Pizza.updateOne(
+            { _id: pizza._id },
+            { $set: { available: new_status } },
+            { session }
+        );
+      }
+    }
+    await session.commitTransaction();
+    res.status(201).json({message: `${the_ingredient.name} status updated`});
+  } catch(err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
+});
+```
+
+![](image-50.png)
+![](image-51.png)
+(Obie pizze zawierają Sos pomidorowy)
+![](image-52.png)
+![](image-53.png)
+![](image-54.png)
+![](image-55.png)
+![](image-56.png)
