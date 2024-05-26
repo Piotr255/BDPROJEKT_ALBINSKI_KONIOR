@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const addressSchema = require('./Address');
 const gradeSchema = require('./Grade');
 const orderSchema = new mongoose.Schema({
-    customer_id: {
+    client_id: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Clients',
         required: true

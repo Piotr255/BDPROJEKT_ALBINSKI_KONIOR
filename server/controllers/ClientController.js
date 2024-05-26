@@ -1,11 +1,14 @@
 /**
  * @author pa
  */
+const Order = require('../models/Order');
 const Client = require('../models/Client');
 const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
 const Pizza = require("../models/Pizza");
 const User = require("../models/User");
+const addressSchema = require("../models/Address");
+const gradeSchema = require("../models/Grade");
 const ObjectId = mongoose.Types.ObjectId;
 
 /*function generateId(length) {
@@ -276,15 +279,77 @@ async function checkPizzasAvailability(basket, res) {
   }
 }
 
-
+// client_id: {
+//   type: mongoose.Schema.Types.ObjectId,
+//     ref: 'Clients',
+//     required: true
+// },
+// employee_id: {
+//   type: mongoose.Schema.Types.ObjectId,
+//     ref: 'Workers',
+//     required: true
+// },
+// deliverer_id: {
+//   type: mongoose.Schema.Types.ObjectId,
+//     ref: 'Workers',
+//     required: false
+// },
+// pizzas: [
+//   {
+//     pizza_id: {
+//       type: mongoose.Schema.Types.ObjectId,
+//       ref: 'Pizzas',
+//       required: true
+//     },
+//     count: {
+//       type: Number,
+//       required: true
+//     }
+//   }
+// ],
+//   client_address: {
+//   type: addressSchema,
+//     required: true
+// },
+// order_notes: {
+//   type: String,
+//     required: false
+// },
+// order_date: {
+//   type: Date,
+//     required: true
+// },
+// grade : {
+//   type: gradeSchema,
+//     required: false
+// }
 const makeOrder = asyncHandler(async (req, res, next) => {
   const {email, id, role} = req.user;
-  const { basket }= req.body; // basket: [id1: count1, id2: count2, ...]
+  const { basket, order_date, employee_id, order_notes } = req.body; // basket: [{pizza_id: ObjectId, count: Number}, {pizza_id: ObjectId, count: Number}, ...]
   if (role !== "client") {
     res.status(401);
     throw new Error("Unauthorized");
   }
+  if (basket.length === 0) {
+    res.status(400);
+    throw new Error("We do not accept empty orders");
+  }
+  const employee_id_ObjId = new ObjectId(employee_id);
   await checkPizzasAvailability(basket, res);
+  const clientData = await Client.findOne({_id: id});
+  /*const pizzas = basket.map(item => ({
+      pizza_id: item.id,
+      count: item.count
+  }));*/
+  await Order.create({
+    client_id: id,
+    employee_id: employee_id_ObjId,
+    pizzas: basket,
+    client_address: clientData.address,
+    order_notes,
+    order_date
+  });
+
   res.status(200).json({ message: "Order placed." })
 });
 
