@@ -118,8 +118,8 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
   try {
-    const { name, new_status } = req.body;
-    const the_ingredient = await Ingredient.findOne({name: name});
+    const { id, new_status } = req.body;
+    const the_ingredient = await Ingredient.findOne({id: id});
     if (!the_ingredient) {
       res.status(400);
       throw new Error("Ingredient doesn't exist");
