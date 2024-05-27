@@ -54,8 +54,11 @@ const orderSchema = new mongoose.Schema({
     to_deliver: {
         type: Boolean,
         required: true
+    },
+    discounts: {
+        type: [mongoose.Types.ObjectId],
+        ref: 'Discounts'
     }
-
 }, {timestamps: true});
 
 module.exports = mongoose.model('Orders', orderSchema);

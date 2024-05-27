@@ -117,6 +117,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
 const addDiscount = asyncHandler(async (req, res, next) => {
   try {
     const {name, pizza_ids, value, start_date, end_date} = req.body;
+    const pizza_ids_ObjId = pizza_ids.map(pizza_id => new ObjectId(pizza_id));
     const existingName = await Discount.findOne({name: name});
     if (existingName) {
       res.status(400);
@@ -124,7 +125,7 @@ const addDiscount = asyncHandler(async (req, res, next) => {
     }
     const pizza_idsExist = await Pizza.aggregate([
       {
-        $match: { menu_number: { $in: pizza_ids } }
+        $match: { _id: { $in: pizza_ids_ObjId } }
       },
       {
         $group: {
@@ -134,7 +135,7 @@ const addDiscount = asyncHandler(async (req, res, next) => {
       },
       {
         $project: {
-          pizzasExist: { $eq: ["$matchedPizzasCount", pizza_ids.length] }
+          pizzasExist: { $eq: ["$matchedPizzasCount", pizza_ids_ObjId.length] }
         }
       },
       {
@@ -159,7 +160,7 @@ const addDiscount = asyncHandler(async (req, res, next) => {
     }
     await Discount.create({
       name,
-      pizza_ids,
+      pizza_ids: pizza_ids_ObjId,
       value,
       start_date: start_date_DATE,
       end_date: end_date_DATE
@@ -167,7 +168,7 @@ const addDiscount = asyncHandler(async (req, res, next) => {
     res.status(200).json({
       message: "Discount saved",
       name,
-      pizza_ids,
+      pizza_ids: pizza_ids_ObjId,
       value,
       start_date,
       end_date
@@ -176,35 +177,6 @@ const addDiscount = asyncHandler(async (req, res, next) => {
     next(err);
   }
 });
-
-// name: {
-//   type: String,
-//     required: true
-// },
-// salary: {
-//   type: Number,
-//     required: true
-// },
-// phone: {
-//   type: String,
-//     required: true
-// },
-// address: {
-//   type: addressSchema,
-//     required: true
-// },
-// status: {
-//   type: String,
-//     required: true
-// },
-// current_orders: {
-//   type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
-// default: []
-// },
-// order_history: {
-//   type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
-// default: []
-// }
 
 const registerWorker = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
