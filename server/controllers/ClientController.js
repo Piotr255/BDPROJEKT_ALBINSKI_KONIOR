@@ -127,5 +127,11 @@ const rateOrder = asyncHandler(async (req, res, next) => {
   }
 });
 
+const getOrderHistory = asyncHandler(async (req, res) => {
+  const {email, id, role} = req.user;
+  const
+
+});
+
 
 module.exports = { getAvailablePizzas, makeOrder, rateOrder };
