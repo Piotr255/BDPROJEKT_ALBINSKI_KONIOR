@@ -56,12 +56,17 @@ async function findEmployee(sessionId) {
   return bestEmployee;
 }
 
+const calculateOrderPrice = async (sessionId, ) => {}
+
+
+
 const makeOrder = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
   try {
     const {email, id, role} = req.user;
-    const { basket, order_date, order_notes, to_deliver} = req.body; // basket: [{pizza_id: ObjectId, count: Number}, {pizza_id: ObjectId, count: Number}, ...]
+    let { basket, order_date, order_notes, to_deliver, discounts} = req.body; // basket: [{pizza_id: ObjectId, count: Number}, {pizza_id: ObjectId, count: Number}, ...]
+    discounts = discounts.map(discount => new ObjectId(discount));
     if (role !== "client") {
       res.status(401);
       throw new Error("Unauthorized");
@@ -82,7 +87,8 @@ const makeOrder = asyncHandler(async (req, res, next) => {
         order_notes,
         order_date,
         status: '0',
-        to_deliver
+        to_deliver,
+        discounts
       }
     ], { session });
     const order = order_[0];
@@ -129,8 +135,6 @@ const rateOrder = asyncHandler(async (req, res, next) => {
 
 const getOrderHistory = asyncHandler(async (req, res) => {
   const {email, id, role} = req.user;
-  const
-
 });
 
 
