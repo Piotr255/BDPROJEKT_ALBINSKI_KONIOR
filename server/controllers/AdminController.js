@@ -444,7 +444,8 @@ const registerWorker = asyncHandler(async (req, res, next) => {
       salary,
       phone,
       address,
-      status
+      status,
+      worker_type
     });
     await session.commitTransaction();
   } catch(err) {

@@ -48,7 +48,8 @@ const orderSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        required: true
+        required: true,
+        enum: ['0', '1','-1', '2', '3.1', '3.2', '4', '-4']
     },
     to_deliver: {
         type: Boolean,

@@ -5,8 +5,9 @@ const discountSchema = new mongoose.Schema({
         required: true
     },
     pizza_ids: {
-        type: [Number],
-        required: true
+        type: [mongoose.Types.ObjectId],
+        ref: 'Pizzas',
+        minLength: 1
     },
     value: {
         type: Number,

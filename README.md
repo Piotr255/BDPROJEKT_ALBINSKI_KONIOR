@@ -24,6 +24,17 @@
 
 ### proste operacje CRUD
 - administrator zarządza aktualnym menu (dodanie, odczytanie (tutaj bardziej klient) modyfikacja, usunięcie pizzy)
+### Wstępne informacje
+### Statusy zamówienia:
+- 0 - zamówienie wprowadzone do bazy, przypisany pracownik
+- 1 - zamówienie przyjęte przez przypisanego pracownika (wprowadza szacowany czas realizacji)
+- -1 odrzucono zamówienie
+- 2 Pizza w przygotowaniu, oczekiwanie na dostawcę (odbiór)
+- 3.1 pizza odebrana przez dostawcę
+- 3.2 pizza odebrana przez klienta
+- 4 pizza dostarczona
+- -4 problemy przy dostawie...
+
 ### Create
 
 ### jakieś operacje o charakterze transakcyjnym (np. zakup, rezerwacja, wypożyczenie, kontrola zasobów itp.)

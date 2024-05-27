@@ -73,18 +73,23 @@ const makeOrder = asyncHandler(async (req, res, next) => {
     const employee = await findEmployee(session.id);
     await checkPizzasAvailability(basket, res, session.id);
     const clientData = await Client.findOne({_id: id},null, {session});
-    await Order.create({
-      client_id: id,
-      employee_id: employee._id,
-      pizzas: basket,
-      client_address: clientData.address,
-      order_notes,
-      order_date,
-      status: '0',
-      to_deliver
-    });
+    const order_ = await Order.create([
+      {
+        client_id: id,
+        employee_id: employee._id,
+        pizzas: basket,
+        client_address: clientData.address,
+        order_notes,
+        order_date,
+        status: '0',
+        to_deliver
+      }
+    ], { session });
+    const order = order_[0];
+    await Worker.updateOne({_id: employee._id}, {$push: {current_orders: order.id}}, {session});
     await session.commitTransaction();
     res.status(200).json({
+      order_id: order._id,
       message: "Order placed.",
       client_id: id,
       employee_id: employee._id,

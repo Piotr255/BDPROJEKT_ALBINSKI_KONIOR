@@ -3,116 +3,11 @@ const mongoose = require('mongoose');
 const asyncHandler = require("express-async-handler");
 const Ingredient = require("../models/Ingredient");
 const Pizza = require("../models/Pizza");
+const Worker = require("../models/Worker");
+const Order = require("../models/Order");
+const Client = require("../models/Client");
 const ObjectId = mongoose.Types.ObjectId;
 
-
-/*
-exports.showCurrentOrders = asyncHandler(async (req, res) => {
-  try {
-    const current_orders = Customer.aggregate([
-      {
-        $unwind: "$order_history"
-      },
-      {
-        $match: { "order_history.status": { $in: ["0", "1", "2a"] } }
-      },
-      {
-        $unwind: "$order_history.pizzas"
-      },
-      {
-        $lookup: {
-          from: "pizzas",
-          localField: "order_history.pizzas.menu_number",
-          foreignField: "menu_number",
-          as: "pizza_details"
-        }
-      },
-      {
-        $unwind: "$pizza_details"
-      },
-      {
-        $lookup: {
-          from: "ingredients",
-          localField: "pizza_details.ingredients",
-          foreignField: "id",
-          as: "ingredient_details"
-        }
-      },
-      {
-        $unwind: {
-          path: "$ingredient_details",
-          preserveNullAndEmptyArrays: true
-        }
-      },
-      {
-        $group: {
-          _id: {
-            orderID: "$order_history._id",
-            pizzaID: "$pizza_details._id"
-          },
-          address: { $first: "$address" },
-          email: { $first: "$email" },
-          name: { $first: "$name" },
-          phone: { $first: "$phone" },
-          status: { $first: "$order_history.status" },
-          customer_order_nr: { $first: "$order_history.customer_order_nr" },
-          order_date: { $first: "$order_history.order_date" },
-          pizza_name: { $first: "$pizza_details.name" },
-          pizza_price: { $first: "$pizza_details.price" },
-          pizza_count: { $first: "$order_history.pizzas.count" },
-          ingredients: { $push: "$ingredient_details.name" },
-          pizza_price_total: { $sum: { $multiply: ["$pizza_details.price", "$order_history.pizzas.count"] } }
-        }
-      },
-      {
-        $group: {
-          _id: "$_id.orderID",
-          address: { $first: "$address" },
-          email: { $first: "$email" },
-          name: { $first: "$name" },
-          phone: { $first: "$phone" },
-          status: { $first: "$status" },
-          customer_order_nr: { $first: "$customer_order_nr" },
-          order_date: { $first: "$order_date" },
-          total_price: { $first: "$pizza_price_total" },
-          pizzas: {
-            $push: {
-              name: "$pizza_name",
-              price: "$pizza_price",
-              count: "$pizza_count",
-              ingredients: "$ingredients"
-            }
-          }
-        }
-      },
-      {
-        $sort: { "_id": 1 }
-      }
-    ]);
-    res.status(200).json(current_orders);
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({error: error.message});
-  }
-});
-
-exports.getIngredients = asyncHandler(async (req, res) => {
-  try {
-    const ingredients = await Ingredient.find();
-    res.status(200).json(ingredients);
-  } catch (err) {
-    res.status(500).json({error: 'An error occurred while fetching ingredients' });
-  }
-});
-
-exports.changeIngredientsStatus = asyncHandler(async (req, res) => {
-  try {
-    await Ingredient.updateOne({id: req.body.id},
-      {onStock: req.body.new_status});
-  } catch (error) {
-    res.status(500).json({error: error.message});
-  }
-});*/
 
 const updateIngredientStatus = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
@@ -159,9 +54,84 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
 });
 
 
-const changeOrderStatus = asyncHandler(async (req, res, next) => {
 
+async function findDeliverer(sessionId) {
+  const session = await mongoose.startSession({_id: sessionId});
+
+  const deliverers = await Worker.find({worker_type: "deliverer", status: "active"}, null, { session });
+
+  if (deliverers.length === 0) {
+    throw new Error("There are no deliverers available at the moment.");
+  }
+  const bestDeliverer = deliverers.reduce((best, current) => {
+    if (current.current_orders.length < best.current_orders.length) {
+      return current;
+    } else {
+      return best;
+    }
+  }, deliverers[0]);
+  return bestDeliverer;
+}
+
+
+
+const changeOrderStatus = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const {new_status, order_id} = req.body;
+    const orderId = new ObjectId(order_id);
+    const order = await Order.findOne({_id: orderId}, null, {session});
+    if (!order) {
+      res.status(400);
+      throw new Error("Order doesn't exist");
+    }
+    if (new_status === "2") {
+      if (order.to_deliver) {
+        const deliverer = await findDeliverer(session.id);
+        if (deliverer) {
+          await Order.updateOne({_id: orderId}, {status: new_status, deliverer_id: deliverer._id}, {session});
+          await Worker.updateOne({_id: deliverer._id}, {$push: {current_orders: orderId}}, {session});
+        }
+      }
+      else {
+        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      }
+    } else if (new_status === '-1') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Worker.updateOne({_id: order.employee_id}, {
+        $pull: {current_orders: orderId},
+        $push: {orders_history: orderId}
+      }, {session});
+    } else if (new_status === '4') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
+      await Worker.updateMany({_id: {$in: [order.employee_id, order.deliverer_id]}},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+    } else if (new_status === '3.2') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
+      await Worker.updateMany({_id: {$in: [order.employee_id]}},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+    } else if (new_status === '3.1') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+    } else if (new_status === '-4') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Worker.updateMany({_id: {$in: [order.employee_id, order.deliverer_id]}},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+    } else if (new_status === '1') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+    }
+    await session.commitTransaction();
+    res.status(201).json({message: `Order status set to ${new_status}`});
+  }
+  catch(err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
 });
 
 
-module.exports = { updateIngredientStatus };
+module.exports = {updateIngredientStatus, changeOrderStatus};

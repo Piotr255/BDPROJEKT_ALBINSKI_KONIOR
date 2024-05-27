@@ -29,7 +29,7 @@ const workerSchema = new mongoose.Schema({
         type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
         default: []
     },
-    order_history: {
+    orders_history: {
         type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
         default: []
     }
