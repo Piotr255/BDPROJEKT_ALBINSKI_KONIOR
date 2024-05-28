@@ -58,7 +58,7 @@ async function findEmployee(sessionId) {
   return bestEmployee;
 }
 
-async function calculateTotalPrice(basket, to_deliver, session_Id, delivery_price) {
+async function calculateTotalPrice(basket, to_deliver, session_Id, delivery_price, res) {
   const session = await mongoose.startSession({_id: session_Id});
   const pizzas = await Pizza.find({_id : {$in: basket.map(item => item.pizza_id)}}, null, {session});
 
@@ -119,7 +119,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
       }
     }
     const vars = await AdminVars.findOne(null, null, {session});
-    const {with_discount, without_discount} = await calculateTotalPrice(basket, to_deliver, session.id, vars.delivery_price);
+    const {with_discount, without_discount} = await calculateTotalPrice(basket, to_deliver, session.id, vars.delivery_price, res);
     if (basket.length === 0) {
       res.status(400);
       throw new Error("We do not accept empty orders");
@@ -204,9 +204,99 @@ const rateOrder = asyncHandler(async (req, res, next) => {
   }
 });
 
-const getOrderHistory = asyncHandler(async (req, res) => {
-  const {email, id, role} = req.user;
+const getOrderHistory = asyncHandler(async (req, res, next) => {
+  try {
+    const {email, id, role} = req.user;
+    const {limit} = req.body;
+    const id_ObjId = new ObjectId(id);
+    const result = await Order.aggregate([
+      {
+        $match: {
+          "client_id": id_ObjId  // Wprowadź odpowiedni client_id
+        }
+      },
+      {
+        $unwind: "$pizzas"
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "pizzas.pizza_id",
+          foreignField: "_id",
+          as: "pizza_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$pizza_details",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: "ingredients",
+          localField: "pizza_details.ingredients",
+          foreignField: "_id",
+          as: "ingredient_details"
+        }
+      },
+      {
+        $lookup: {
+          from: "discounts",
+          localField: "discount_id",
+          foreignField: "_id",
+          as: "discount_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$discount_details",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "discount_details.pizza_ids",
+          foreignField: "_id",
+          as: "discount_pizza_names"
+        }
+      },
+      {
+        $group: {
+          _id: "$_id",
+          client_id: {$first: "$client_id"},
+          employee_id: {$first: "$employee_id"},
+          client_address: {$first: "$client_address"},
+          order_notes: {$first: "$order_notes"},
+          order_date: {$first: "$order_date"},
+          status: {$first: "$status"},
+          to_deliver: {$first: "$to_deliver"},
+          total_price: {$first: "$total_price"},
+          pizzas: {
+            $push: {
+              pizza_id: "$pizza_details._id",
+              pizza_name: "$pizza_details.name",
+              count: "$pizzas.count",
+              ingredients: "$ingredient_details.name"
+            }
+          },
+          discount_details: {
+            $first: {
+              discount_name: "$discount_details.name",
+              discount_value: "$discount_details.value",
+              pizza_names: "$discount_pizza_names.name"
+            }
+          }
+        }
+      }
+    ]);
+    console.log(result);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 
-module.exports = { getAvailablePizzas, makeOrder, rateOrder };
+module.exports = { getAvailablePizzas, makeOrder, rateOrder, getOrderHistory };
