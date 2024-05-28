@@ -8,6 +8,7 @@ const addressSchema = require("../models/Address");
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
 const ObjectId = mongoose.Types.ObjectId;
+const AdminVars = require("../models/AdminVars");
 
 const addIngredient = asyncHandler(async (req, res, next) => {
   try {
@@ -34,6 +35,16 @@ const addIngredient = asyncHandler(async (req, res, next) => {
   } catch(err) {
     next(err);
   }
+});
+
+
+const createOrUpdateDeliveryPrice = asyncHandler(async (req, res) => {
+  const { new_price } = req.body;
+  await AdminVars.updateOne(null,
+      { $set: { delivery_price: new_price } },
+      { upsert: true, new: true }
+  )
+  res.status(200).json({message: `Delivery price set to ${new_price}`});
 });
 
 const addPizza = asyncHandler(async (req, res, next) => {
@@ -220,4 +231,4 @@ const registerWorker = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { addPizza, addIngredient, addDiscount, registerWorker};
+module.exports = { addPizza, addIngredient, addDiscount, registerWorker, createOrUpdateDeliveryPrice};

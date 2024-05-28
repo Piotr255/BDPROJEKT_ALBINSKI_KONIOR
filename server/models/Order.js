@@ -27,6 +27,12 @@ const orderSchema = new mongoose.Schema({
             count: {
                 type: Number,
                 required: true
+            },
+            discount: {
+                type: Number,
+                min: 0,
+                max: 1,
+                default: 0
             }
         }
     ],
@@ -55,9 +61,23 @@ const orderSchema = new mongoose.Schema({
         type: Boolean,
         required: true
     },
-    discounts: {
-        type: [mongoose.Types.ObjectId],
-        ref: 'Discounts'
+    total_price: {
+        with_discount: {
+            type: Number,
+            required: true
+        },
+        without_discount: {
+            type: Number,
+            required: true
+        },
+        delivery_price: {
+            type: Number,
+            required: true
+        }
+    },
+    discount_id: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: false
     }
 }, {timestamps: true});
 
