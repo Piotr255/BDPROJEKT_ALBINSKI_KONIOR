@@ -3,6 +3,7 @@ const Ingredient = require('../models/Ingredient');
 const Discount = require('../models/Discount');
 const User = require('../models/User');
 const Worker = require('../models/Worker');
+const Order = require('../models/Order');
 const asyncHandler = require("express-async-handler");
 const addressSchema = require("../models/Address");
 const mongoose = require("mongoose");
@@ -231,4 +232,76 @@ const registerWorker = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports = { addPizza, addIngredient, addDiscount, registerWorker, createOrUpdateDeliveryPrice};
+const bestRatedEmployees = asyncHandler(async (req, res, next) => {
+  try {
+    let {limit, date_from, date_to} = req.body;
+    if (!limit) {
+      throw new Error("Please provide a limit");
+    }
+    if (!date_from) {
+      date_from = new Date(0);
+    }
+    if (!date_to) {
+      date_to = new Date();
+    }
+
+    const result = await Order.aggregate([
+      {
+        $match: {
+          "grade": { $exists: true },
+          order_date: {
+            $gte: date_from,
+            $lte: date_to
+          }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            employee_id: "$employee_id"
+          },
+          avg_grade_for_food: { $avg: "$grade.grade_food" }
+        }
+      },
+      {
+        $lookup: {
+          from: "workers",
+          localField: "_id.employee_id",
+          foreignField: "_id",
+          as: "employee_details"
+        }
+      },
+      {
+        $unwind: "$employee_details"
+      },
+      {
+        $project: {
+          _id: 0,
+          employee_name: "$employee_details.name",
+          avg_grade_for_food: 1,
+        }
+      },
+      {
+        $sort: { avg_grade_for_food: -1 }
+      },
+      {
+        $limit: limit
+      }
+    ]);
+    res.status(200).json(result);
+  } catch(error) {
+    next(error);
+  }
+});
+
+const mostBeneficialPizzasThisYear = asyncHandler(async (req, res, next) => {
+  const {limit} = req.body;
+  const result = await Order.aggregate([
+    {
+
+    }
+  ]);
+});
+
+module.exports = { addPizza, addIngredient, addDiscount, registerWorker, createOrUpdateDeliveryPrice,
+bestRatedEmployees };

@@ -183,17 +183,28 @@ const makeOrder = asyncHandler(async (req, res, next) => {
 const rateOrder = asyncHandler(async (req, res, next) => {
   try {
     const {email, id, role} = req.user;
-    const { grade_for_food, grade_for_service, comment } = req.body;
-    await Order.updateOne({ client_id: id }, {$set: {grade:
+    const { order_id, grade_food, grade_delivery, comment } = req.body;
+    if (!grade_food || !grade_delivery) {
+      throw new Error("Please fill in all fields");
+    }
+    const order = await Order.findOne({_id: order_id});
+    if (!order) {
+      throw new Error("Order doesn't exist");
+    }
+    if (order.status !== '3.2' && order.status !== '4') {
+      throw new Error("Invalid order status for rating");
+    }
+    const order_id_ObjId = new ObjectId(order_id);
+    await Order.updateOne({ _id: order_id_ObjId }, {$set: {grade:
         {
-          grade_for_food: grade_for_food,
-          grade_for_service: grade_for_service,
-          comment: comment
+          grade_food,
+          grade_delivery,
+          comment
         }}});
     res.status(200).json({
       message: "Order has been rated",
-      grade_for_food,
-      grade_for_service,
+      grade_food,
+      grade_delivery,
       comment
     });
   } catch (err) {
@@ -345,6 +356,10 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+});
+
+const getMostlyOftenEatenPizzas = asyncHandler(async (req, res) => {
+  const { date_from, date_to, min_stars } = req.body;
 });
 
 

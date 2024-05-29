@@ -125,9 +125,9 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
     } else if (new_status === '3.2') {
       await Order.updateOne({_id: orderId}, {status: new_status}, {session});
       await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
-      await Worker.updateMany({_id: {$in: [order.employee_id]}},
+      await Worker.updateOne({_id: order.employee_id},
           {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-      const the_order = await Order.find({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
+      const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
       let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
       saved_amount = parseFloat(saved_amount.toFixed(2));
 

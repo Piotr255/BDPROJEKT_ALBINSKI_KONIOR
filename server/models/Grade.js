@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 const gradeSchema = new mongoose.Schema({
-    grade_for_food: {
+    grade_food: {
         type: Number,
         min: 1,
         max: 6,
         required: true
     },
-    grade_for_service: {
+    grade_delivery: {
         type: Number,
         min: 1,
         max: 6,
