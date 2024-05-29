@@ -24,6 +24,10 @@ const orderSchema = new mongoose.Schema({
                 ref: 'Pizzas',
                 required: true
             },
+            current_price: {
+                type: Number,
+                required: true
+            },
             count: {
                 type: Number,
                 required: true

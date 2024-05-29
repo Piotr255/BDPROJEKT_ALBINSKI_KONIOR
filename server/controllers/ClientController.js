@@ -58,20 +58,12 @@ async function findEmployee(sessionId) {
   return bestEmployee;
 }
 
-async function calculateTotalPrice(basket, to_deliver, session_Id, delivery_price, res) {
-  const session = await mongoose.startSession({_id: session_Id});
-  const pizzas = await Pizza.find({_id : {$in: basket.map(item => item.pizza_id)}}, null, {session});
-
-  if (pizzas.length !== basket.length) {
-    res.status(400);
-    throw new Error("Some pizzas are not available");
-  }
+async function calculateTotalPrice(basket, to_deliver, delivery_price) {
   let priceWithDiscount = 0;
   let priceWithoutDiscount = 0;
   for (let basketPos of basket) {
-    let pizza = pizzas.find((item) => item._id.equals(basketPos.pizza_id));
-    priceWithDiscount += pizza.price * basketPos.count * (1-basketPos.discount);
-    priceWithoutDiscount += pizza.price * basketPos.count;
+    priceWithDiscount += basketPos.current_price * basketPos.count * (1-basketPos.discount);
+    priceWithoutDiscount += basketPos.current_price * basketPos.count;
   }
   priceWithDiscount = parseFloat(priceWithDiscount.toFixed(2));
   return to_deliver ?
@@ -118,8 +110,13 @@ const makeOrder = asyncHandler(async (req, res, next) => {
         basketPos.discount = 0;
       }
     }
+    const pizzas = await Pizza.find({_id : {$in: basket.map(item => item.pizza_id)}}, null, {session});
+    for (let basketPos of basket) {
+      let pizza = pizzas.find((item) => item._id.equals(basketPos.pizza_id));
+      basketPos.current_price = pizza.price;
+    }
     const vars = await AdminVars.findOne(null, null, {session});
-    const {with_discount, without_discount} = await calculateTotalPrice(basket, to_deliver, session.id, vars.delivery_price, res);
+    const {with_discount, without_discount} = await calculateTotalPrice(basket, to_deliver, vars.delivery_price);
     if (basket.length === 0) {
       res.status(400);
       throw new Error("We do not accept empty orders");
@@ -207,7 +204,16 @@ const rateOrder = asyncHandler(async (req, res, next) => {
 const getOrderHistory = asyncHandler(async (req, res, next) => {
   try {
     const {email, id, role} = req.user;
-    const {limit} = req.body;
+    let {limit, date_from, date_to} = req.body;
+    if(!limit) {
+      throw new Error("Please provide a limit");
+    }
+    if( !date_from ) {
+      date_from = new Date(0);
+    }
+    if( !date_to ) {
+      date_to = new Date();
+    }
     const id_ObjId = new ObjectId(id);
     const result = await Order.aggregate([
       {
