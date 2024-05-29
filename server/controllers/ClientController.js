@@ -215,11 +215,19 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
       date_to = new Date();
     }
     const id_ObjId = new ObjectId(id);
+    const the_client = await Client.findOne({_id: id_ObjId});
     const result = await Order.aggregate([
       {
         $match: {
-          "client_id": id_ObjId  // Wprowadź odpowiedni client_id
+          "client_id": id_ObjId,
+          "order_date": {
+            $gte: date_from,
+            $lte: date_to
+          }
         }
+      },
+      {
+        $limit: limit
       },
       {
         $unwind: "$pizzas"
@@ -269,10 +277,40 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
         }
       },
       {
+        $lookup: {
+          from: "workers",
+          localField: "employee_id",
+          foreignField: "_id",
+          as: "employee_details"
+        }
+      },
+      {
+        $unwind: "$employee_details"
+      },
+      {
+        $lookup: {
+          from: "workers",
+          localField: "deliverer_id",
+          foreignField: "_id",
+          as: "deliverer_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$deliverer_details",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          "client_address._id": 0
+        }
+      },
+      {
         $group: {
           _id: "$_id",
-          client_id: {$first: "$client_id"},
-          employee_id: {$first: "$employee_id"},
+          employee_name: {$first: "$employee_details.name"},
+          deliverer_name: {$first: "$deliverer_details.name"},
           client_address: {$first: "$client_address"},
           order_notes: {$first: "$order_notes"},
           order_date: {$first: "$order_date"},
@@ -281,7 +319,7 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
           total_price: {$first: "$total_price"},
           pizzas: {
             $push: {
-              pizza_id: "$pizza_details._id",
+              pizza_price: "$pizzas.price",
               pizza_name: "$pizza_details.name",
               count: "$pizzas.count",
               ingredients: "$ingredient_details.name"
@@ -298,7 +336,12 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
       }
     ]);
     console.log(result);
-    res.status(200).json(result);
+    res.status(200).json({
+      client_name: the_client.name,
+      result,
+      date_from,
+      date_to
+    });
   } catch (error) {
     next(error);
   }
