@@ -8,6 +8,10 @@ const addressSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    district: {
+        type: String,
+        required: false
+    },
     zip_code: {
         type: String,
         required: true

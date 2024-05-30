@@ -294,14 +294,155 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
   }
 });
 
-const mostBeneficialPizzasThisYear = asyncHandler(async (req, res, next) => {
-  const {limit} = req.body;
-  const result = await Order.aggregate([
-    {
+const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
+  try {
+    const now = new Date();
+    const oneYearAgo = new Date(now);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
+    const result = await Order.aggregate([
+      {
+        $match: {
+          order_date: {
+            $gte: oneYearAgo,
+            $lte: now
+          }
+        }
+      },
+      {
+        $project: {
+          pizzas: 1,
+          order_date: 1
+        }
+      },
+      {
+        $unwind: "$pizzas"
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: "$order_date" },
+            pizza_id: "$pizzas.pizza_id"
+          },
+          total_profit: {
+            $sum: {
+              $multiply: [
+                "$pizzas.current_price",
+                "$pizzas.count",
+                { $subtract: [1, "$pizzas.discount"] }
+              ]
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "_id.pizza_id",
+          foreignField: "_id",
+          as: "pizza_details"
+        }
+      },
+      {
+        $unwind: "$pizza_details"
+      },
+      {
+        $group: {
+          _id: {
+            month: "$_id.month"
+          },
+          pizzas: {
+            $push: {
+              pizza_name: "$pizza_details.name",
+              total_profit: "$total_profit"
+            }
+          },
+          total_profit_this_month: { $sum: "$total_profit" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          month: "$_id.month",
+          pizzas: 1,
+          total_profit_this_month: 1
+        }
+      },
+      {
+        $sort: {
+          total_profit_this_month: -1
+        }
+      }
+    ]);
+    res.status(200).json(result);
+  } catch(error) {
+    next(error);
+  }
+});
+
+const mostGenerousClients = asyncHandler(async (req, res, next) => {
+  try {
+    let {limit, date_from, date_to} = req.body;
+    if (!limit) {
+      throw new Error("Provide the limit");
     }
-  ]);
+    if (!date_from) {
+      date_from = new Date(0);
+    }
+    if (!date_to) {
+      date_to = new Date();
+    }
+    const result = await Order.aggregate([
+      {
+        $match: {
+          status: {$in: ['3.2', '4']},
+          order_date: {
+            $gte: date_from,
+            $lte: date_to
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$client_id",
+          total_profit_from_client: {$sum: "$total_price.with_discount"}
+        }
+      },
+      {
+        $sort: {total_profit_from_client: -1}
+      },
+      {
+        $limit: limit
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "_id",
+          foreignField: "_id",
+          as: "client_details"
+        }
+      },
+      {
+        $unwind: "$client_details"
+      },
+      {
+        $project: {
+          name: "$client_details.name",
+          address: {
+            city: "$client_details.address.city",
+            street: "$client_details.address.street",
+            zip_code: "$client_details.address.zip_code"
+          },
+          order_count: "$client_details.order_count",
+          total_profit_from_client: 1
+        }
+      }
+    ]);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = { addPizza, addIngredient, addDiscount, registerWorker, createOrUpdateDeliveryPrice,
-bestRatedEmployees };
+bestRatedEmployees, mostBeneficialPizzasLastYear, mostGenerousClients };

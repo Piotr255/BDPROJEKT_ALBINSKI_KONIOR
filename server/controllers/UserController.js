@@ -22,12 +22,14 @@ const registerClient = asyncHandler(async (req, res, next) => {
             throw new Error("User already exists");
         }
         const hashedPassword = await bcrypt.hash(password, 10);
+
         console.log(hashedPassword);
         const user = await User.create([{ //tworzymy użytkownika
             email,
             password: hashedPassword,
             role
         }], { session });
+
         if (user && role === "client") {
             const user_id = user[0]._id;
             const client = await Client.create([{ //tworzymy klienta
@@ -36,6 +38,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
                 phone,
                 address: { city, street, zip_code }
             }], { session });
+
             if (client) {
                 await session.commitTransaction(); //użytkownik i klient poprawnie stworzeni, zatwierdzamy transakcję
                 res.status(201).json({

@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const AdminRouter = require('./server/routers/AdminRouter.js');
-const AccountRouter = require('./server/routers/AccountRouter.js');
 const ClientRouter = require('./server/routers/ClientRouter.js');
 const EmployeeRouter = require('./server/routers/EmployeeRouter');
 const UserRouter = require('./server/routers/UserRouter');
@@ -17,7 +16,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use("/admin", AdminRouter);
-// app.use("/account", AccountRouter);
 app.use("/client", ClientRouter);
 app.use("/employee", EmployeeRouter);
 app.use("/user", UserRouter);

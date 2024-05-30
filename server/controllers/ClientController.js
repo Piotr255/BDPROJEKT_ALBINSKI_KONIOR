@@ -58,7 +58,7 @@ async function findEmployee(sessionId) {
   return bestEmployee;
 }
 
-async function calculateTotalPrice(basket, to_deliver, delivery_price) {
+function calculateTotalPrice(basket, to_deliver, delivery_price) {
   let priceWithDiscount = 0;
   let priceWithoutDiscount = 0;
   for (let basketPos of basket) {
@@ -116,7 +116,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
       basketPos.current_price = pizza.price;
     }
     const vars = await AdminVars.findOne(null, null, {session});
-    const {with_discount, without_discount} = await calculateTotalPrice(basket, to_deliver, vars.delivery_price);
+    const {with_discount, without_discount} = calculateTotalPrice(basket, to_deliver, vars.delivery_price);
     if (basket.length === 0) {
       res.status(400);
       throw new Error("We do not accept empty orders");
@@ -136,7 +136,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
           order_date,
           status: '0',
           to_deliver,
-          total_price: {with_discount, without_discount, delivery_price: vars.delivery_price},
+          total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
           discount_id
         }
       ], { session });
@@ -150,7 +150,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
           order_notes,
           order_date,
           status: '0',
-          total_price: {with_discount, without_discount, delivery_price: vars.delivery_price},
+          total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
           to_deliver,
           discount_id: null
         }
@@ -169,7 +169,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
       client_address: clientData.address,
       order_notes,
       order_date,
-      total_price: {with_discount, without_discount, delivery_price: vars.delivery_price},
+      total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
       discount_id
     });
   } catch (err) {

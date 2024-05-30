@@ -36,4 +36,7 @@ const workerSchema = new mongoose.Schema({
 
 });
 
+workerSchema.index({current_orders: 1});
+workerSchema.index({orders_history: 1});
+
 module.exports = mongoose.model('Workers', workerSchema);
