@@ -32,6 +32,14 @@ const clientSchema = new mongoose.Schema({
                     type: Number,
                     required: true}}],
         default: []
+    },
+    current_orders: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+        default: []
+    },
+    orders_history: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+        default: []
     }
 });
 

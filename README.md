@@ -8,6 +8,27 @@
 - MongoDB
 - Node.js
 
+
+
+
+# Spis treści
+* [Szkielet projektu](#szkielet-projekt) 
+    - [app.js](#app.js)
+    - [errorHandler](#errorHandler) 
+    - [AdminRouter](#AdminRouter)
+    - [ClientRouter](#ClientRouter)
+    - [EmployeeRouter](#EmployeeRouter)
+    - [UserRouter](#UserRouter)
+* [Schemat bazy danych](#schema)
+
+
+
+Proste operacje CRUD
+* [registerClient](#registerClient) 
+* [loginUser](#loginUser)
+
+
+
 ### Wstępne informacje:
 - Korzystamy z frameworka Express oraz z mongoose
 - Korzystamy z tokenów JWT do zablokowania nieautoryzowanego dostępu do zasobów naszej bazy.
@@ -22,7 +43,8 @@
 - 4 pizza dostarczona
 - -4 problemy przy dostawie...
 
-Oto nasz główny plik, który uruchamiany - app.js:
+Oto nasz główny plik, który uruchamiany:
+app.js <a id="app.js"></a>
 ```js
 const express = require('express');
 const cors = require('cors');
@@ -51,7 +73,7 @@ app.listen(port, () => {
 });
 ```
 
-errorHandler:
+errorHandler: <a id="errorHandler"></a>
 ```js
 const { constants } = require('../Constants');
 const errorHandler = (err, req, res, next) => {
@@ -81,7 +103,7 @@ module.exports = errorHandler;
 ```
 
 Oto nasze routery:
-AdminRouter.js:
+AdminRouter.js: <a id="AdminRouter"></a>
 ```js
 const express = require("express");
 const router = express.Router();
@@ -109,7 +131,7 @@ router.get("/most_generous_clients", validateToken, authorizeAdmin, mostGenerous
 module.exports = router;
 ```
 
-ClientRouter:
+ClientRouter: <a id="ClientRouter"></a>
 ```js
 const express = require("express");
 const router = express.Router();
@@ -130,7 +152,7 @@ router.get("/order_history", validateToken, authorizeClient, getOrderHistory);
 module.exports = router;
 ```
 
-EmployeeRouter:
+EmployeeRouter: <a id="EmployeeRouter"></a>
 ```js
 const express = require("express");
 const router = express.Router();
@@ -147,7 +169,7 @@ router.patch("/change_order_status", validateToken, authorizeWorker, changeOrder
 module.exports = router;
 ```
 
-UserRouter:
+UserRouter: <a id="UserRouter"></a>
 ```js
 const express = require('express');
 const router = express.Router();
@@ -168,7 +190,7 @@ router.patch('/change_password', validateToken, changePassword);
 module.exports = router;
 ```
 
-validateToken:
+validateToken: <a id="validateToken"></a>
 ```js
 const asyncHandler  = require('express-async-handler');
 const jwt = require('jsonwebtoken');
@@ -203,7 +225,7 @@ module.exports = validateToken;
 
 
 
-### Schemat bazy
+### Schemat bazy <a id="schema"></a>
 
 orders:
 ```js
@@ -536,7 +558,7 @@ module.exports = addressSchema;
 
 ### Proste operacje CRUD - ten etap projektu wykonujemy na kolekcji users
 
-### registerClient (create)
+### registerClient (create) <a id="registerClient"></a>
 Tworzymy konto dla użytkownika w naszej bazie. Podajemy podstawowe potrzebne dane. Wykorzystujemy transakcję
 
 ```js

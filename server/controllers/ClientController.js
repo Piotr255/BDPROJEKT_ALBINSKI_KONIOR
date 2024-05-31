@@ -159,6 +159,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
 
     const order = order_[0];
     await Worker.updateOne({_id: employee._id}, {$push: {current_orders: order.id}}, {session});
+    await Client.updateOne({_id: id}, {$push: {current_orders: order.id}}, {session});
     await session.commitTransaction();
     res.status(200).json({
       order_id: order._id,
