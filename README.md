@@ -20,12 +20,20 @@
     - [EmployeeRouter](#EmployeeRouter)
     - [UserRouter](#UserRouter)
 * [Schemat bazy danych](#schema)
+    - [adminvars](#adminvars)
+    - [orders](#orders)
+    - [clients](#clients)
+    - [pizzas](#pizzas)
+    - [ingredients](#ingredients)
+    - [workers](#workers)
+    - [users](#users)
+    - [gradeSchema](#gradeSchema)
+    - [addressSchema](#addressSchema)
 
 
 
 
 ## Proste operacje CRUD
-* [registerClient](#registerClient) (transakcja)
 * [loginUser](#loginUser)
 * [changePassword](#changePassword)
 * [currentUser](#currentUser)
@@ -37,6 +45,7 @@
 
 
 ## Operacje o charakterze transakcyjnym
+* [registerClient](#registerClient) 
 * [changeOrderStatus](#changeOrderStatus)
 * [registerWorker](#registerWorker)
 * [makeOrder](#makeOrder)
@@ -49,7 +58,7 @@
 
 
 
-### Wstępne informacje:
+### Wstępne informacje: <a id="szkielet-projekt"> </a>
 - Korzystamy z frameworka Express oraz z mongoose
 - Korzystamy z tokenów JWT do zablokowania nieautoryzowanego dostępu do zasobów naszej bazy.
 
@@ -238,8 +247,19 @@ module.exports = validateToken;
 
 
 ### Schemat bazy <a id="schema"></a>
+adminvars <a id="adminvars"> </a>
+```js
+const mongoose = require('mongoose');
+const AdminVarsSchema = new mongoose.Schema({
+    delivery_price: {
+        type: Number,
+        required: true
+    }
+});
 
-orders:
+module.exports = mongoose.model('AdminVars', AdminVarsSchema);
+```
+orders <a id="orders"> </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = require('./Address');
@@ -267,11 +287,11 @@ const orderSchema = new mongoose.Schema({
                 ref: 'Pizzas',
                 required: true
             },
-            current_price: { // cena pizzy może się zmieniać, więc tu zapisujemy cenę każdej zamówionej pizzy w momencie składania zamówienia
+            current_price: {
                 type: Number,
                 required: true
             },
-            count: { 
+            count: {
                 type: Number,
                 required: true
             },
@@ -308,8 +328,7 @@ const orderSchema = new mongoose.Schema({
         type: Boolean,
         required: true
     },
-    total_price: { // można by teoretycznie obliczać to zawsze na podstawie pola pizzas, 
-    //ale dodajemy tego typu redundantne pola, aby uprościć zapytania, z których korzysta klient, np. wyświetl historię zamówień
+    total_price: {
         with_discount: {
             type: Number,
             required: true
@@ -318,21 +337,23 @@ const orderSchema = new mongoose.Schema({
             type: Number,
             required: true
         },
-        delivery_price: { // wliczone w cenę with_discount i without_discount
+        delivery_price: {
             type: Number,
             required: true
         }
     },
-    discount_id: { // można użyć tylko jednej zniżki na zamówienie. klient przy składaniu zamówienia decyduje, z której zniżki chce skorzystać
+    discount_id: {
         type: mongoose.Schema.Types.ObjectId,
         required: false
     }
 }, {timestamps: true});
 
 module.exports = mongoose.model('Orders', orderSchema);
+
+
 ```
 
-clients:
+clients <a id="clients"> </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = require('./Address');
@@ -354,11 +375,11 @@ const clientSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    discount_saved: { // ile klient zaoszczędził na zniżkach - kolejne teoretycznie redundantne pole, ale jego obliczenie byłoby dosyć skomplikowane i wydłużało by czas wykonywania zapytań przeznaczonych dla klienta.
+    discount_saved: {
         type: Number,
         default: 0
     },
-    grades: { // oceny pizz przez klienta, nie zamówień tylko pizz
+    grades: {
         type: [{ pizza_id: {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: 'Pizzas',
@@ -368,13 +389,21 @@ const clientSchema = new mongoose.Schema({
                     type: Number,
                     required: true}}],
         default: []
+    },
+    current_orders: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+        default: []
+    },
+    orders_history: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+        default: []
     }
 });
 
 module.exports = mongoose.model('Clients', clientSchema);
 ```
 
-pizzas:
+pizzas  <a id="pizzas"> </a>
 ```js
 const mongoose = require("mongoose");
 const pizzaSchema = new mongoose.Schema({
@@ -397,16 +426,16 @@ const pizzaSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    available: { // pole aktualizowane podczas aktualizacji pola dostępności składnika w poniższej kolekcji ingredients
+    available: {
         type: Boolean,
         required: true
     },
     grades: {
-        points_sum: { // suma ocen pizz
+        points_sum: {
             type: Number,
             default: 0
         },
-        grade_count: { // liczba ocen pizz
+        grade_count: {
             type: Number,
             default: 0
         }
@@ -416,7 +445,7 @@ const pizzaSchema = new mongoose.Schema({
 module.exports = mongoose.model("Pizzas", pizzaSchema);
 ```
 
-ingredients:
+ingredients <a id="ingredients"> </a>
 ```js
 const mongoose = require('mongoose');
 const ingredientSchema = new mongoose.Schema({
@@ -441,7 +470,7 @@ const ingredientSchema = new mongoose.Schema({
 module.exports = mongoose.model('Ingredients', ingredientSchema);
 ```
 
-workers:
+workers <a id="workers"> </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = require('./Address');
@@ -450,7 +479,7 @@ const workerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    worker_type: { // employee(pracownik w kuchni) lub deliverer(dostawca)
+    worker_type: {
         type: String,
         required: true
     },
@@ -466,7 +495,7 @@ const workerSchema = new mongoose.Schema({
         type: addressSchema,
         required: true
     },
-    status: { // active lub inactive
+    status: {
         type: String,
         required: true
     },
@@ -487,7 +516,8 @@ workerSchema.index({orders_history: 1});
 module.exports = mongoose.model('Workers', workerSchema);
 ```
 
-users: (połączone przez _id z clients i workers, w users istnieje też jedno konto admina)
+users <a id="users">  </a>
+(połączone przez _id z clients i workers, w users istnieje też jedno konto admina)
 ```js
 const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
@@ -509,7 +539,7 @@ const userSchema = new mongoose.Schema({
 module.exports = mongoose.model('Users', userSchema);
 ```
 
-gradeSchema:
+gradeSchema: <a id="gradeSchema">  </a>
 ```js
 const mongoose = require('mongoose');
 const gradeSchema = new mongoose.Schema({
@@ -535,10 +565,11 @@ const gradeSchema = new mongoose.Schema({
 module.exports = gradeSchema;
 ```
 
-addressSchema:
+addressSchema: <a id="addressSchema">  </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = new mongoose.Schema({
+    _id: false,
     city: {
         type: String,
         required: true
