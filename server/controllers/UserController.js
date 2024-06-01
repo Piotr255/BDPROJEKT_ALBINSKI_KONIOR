@@ -11,19 +11,18 @@ const registerClient = asyncHandler(async (req, res, next) => {
     const session = await mongoose.startSession();
     await session.startTransaction();
     try {
-        const { email, name, password, role, phone, city, street, zip_code } = req.body;
+        const { email, name, password, role, phone, city, street, zip_code, district} = req.body;
 
-        if (!name || !email || !password || !role || !phone || !city || !street || !zip_code) {
+        if (!name || !email || !password || !role || !phone || !city || !street || !zip_code || !district) {
             throw new Error("Please fill in all fields");
         }
 
-        const userAvailable = await User.findOne({ email }, { session }); // sprawdzamy czy istnieje użytkownik o podanym emailu
+        const userAvailable = await User.findOne({ email }, null, { session }); // sprawdzamy czy istnieje użytkownik o podanym emailu
         if (userAvailable) {
             throw new Error("User already exists");
         }
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        console.log(hashedPassword);
         const user = await User.create([{ //tworzymy użytkownika
             email,
             password: hashedPassword,
@@ -36,7 +35,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
                 _id: user_id,
                 name,
                 phone,
-                address: { city, street, zip_code }
+                address: { city, street, zip_code, district}
             }], { session });
 
             if (client) {
@@ -48,7 +47,8 @@ const registerClient = asyncHandler(async (req, res, next) => {
                     phone: client[0].phone,
                     city: client[0].address.city,
                     street: client[0].address.street,
-                    zip_code: client[0].address.zip_code
+                    zip_code: client[0].address.zip_code,
+                    district: client[0].address.district
                 });
             }
         } else {
@@ -95,7 +95,11 @@ const deleteUser = asyncHandler(async (req, res) => {
         const user = await User.findOne({ email }, { session });
         if (user && (await bcrypt.compare(password, user.password))) {
             await User.deleteOne({email});
-            await Client.deleteOne({_id: user.id});
+            if (user.role === "client") {
+                await Client.deleteOne({_id: user.id});
+            } else if (user.role === "worker") {
+                await Worker.deleteOne({_id: user.id});
+            }
             await session.commitTransaction();
             res.status(200).json({email, message: "User deleted"});
         }
@@ -157,6 +161,29 @@ const changePassword = asyncHandler(async (req, res) => {
 
 });
 
+
+const changeAddress = asyncHandler(async (req, res) => {
+    const {email, id, role} = req.user;
+    const {new_address} = req.body;
+    if(!new_address) {
+        res.status(400);
+        throw new Error("Please fill in all fields");
+    }
+    if(role === "client"){
+        await Client.updateOne({_id: id}, {address: new_address});
+        res.status(200).json({email, id, role, new_address});
+    }
+    else if(role === "worker"){
+        await Worker.updateOne({_id: id}, {address: new_address});
+        res.status(200).json({email, id, role, new_address});
+    }
+    else {
+        res.status(401);
+        throw new Error("Invalid role");
+    }
+
+});
+
 // const updateUser = asyncHandler(async (req, res) => {
 //     const {email, id, role} = req.user;
 //     const { email, name, password, role, phone, city, street, zip_code } = req.body; //new_data
@@ -183,4 +210,4 @@ const changePassword = asyncHandler(async (req, res) => {
 //
 
 
-module.exports = {registerUser: registerClient, loginUser, currentUser, deleteUser, changePassword};
+module.exports = {registerUser: registerClient, loginUser, currentUser, deleteUser, changePassword, changeAddress};

@@ -186,4 +186,121 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
 });
 
 
-module.exports = {updateIngredientStatus, changeOrderStatus};
+const getCurrentOrders = asyncHandler(async (req, res, next) => {
+  try {
+    const objId = new ObjectId(req.user.id);
+    const orders = await Worker.aggregate([
+      {
+        $match: { _id: objId }
+      },
+      {
+        $lookup: {
+          from: "orders",
+          localField: "current_orders",
+          foreignField: "_id",
+          as: "current_orders"
+        }
+      },
+      {
+        $unwind: "$current_orders"
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "current_orders.client_id",
+          foreignField: "_id",
+          as: "current_orders.client"
+        }
+      },
+      {
+        $unwind: "$current_orders.client"
+      },
+      {
+        $lookup: {
+          from: "workers",
+          localField: "current_orders.deliverer_id",
+          foreignField: "_id",
+          as: "current_orders.deliverer"
+        }
+      },
+      {
+        $unwind: {
+          path: "$current_orders.deliverer",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $group: {
+          _id: "$current_orders._id",
+          employee: { $first: "$name" },
+          client: { $first: "$current_orders.client.name" },
+          deliverer: { $first: "$current_orders.deliverer.name" },
+          order_date: { $first: "$current_orders.order_date" },
+          pizzas: { $first: "$current_orders.pizzas" },
+          total_price: { $first: "$current_orders.total_price" },
+          discount_id: { $first: "$current_orders.discount_id" },
+          grade: { $first: "$current_orders.grade" },
+          status: { $first: "$current_orders.status" },
+          toDeliver: { $first: "$current_orders.to_deliver" }
+        }
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "pizzas.pizza_id",
+          foreignField: "_id",
+          as: "pizza_details"
+        }
+      },
+      {
+        $lookup: {
+          from: "discounts",
+          localField: "discount_id",
+          foreignField: "_id",
+          as: "discount"
+        }
+      },
+      {
+        $unwind: {
+          path: "$discount",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          employee: 1,
+          client: 1,
+          deliverer: 1,
+          order_date: 1,
+          status: 1,
+          toDeliver: 1,
+          pizzas: {
+            $map: {
+              input: "$pizzas",
+              as: "pizzaItem",
+              in: {
+                name: { $arrayElemAt: ["$pizza_details.name", { $indexOfArray: ["$pizza_details._id", "$$pizzaItem.pizza_id"] }] },
+                price: { $arrayElemAt: ["$pizza_details.price", { $indexOfArray: ["$pizza_details._id", "$$pizzaItem.pizza_id"] }] },
+                count: "$$pizzaItem.count",
+                discount: "$$pizzaItem.discount"
+              }
+            }
+          },
+          total_price: 1,
+          discount: { $ifNull: ["$discount.name", null] },
+        }
+      }
+    ]);
+
+
+    res.status(200).json(orders);
+
+  } catch(err) {
+    next(err);
+  }
+
+});
+
+
+module.exports = {updateIngredientStatus, changeOrderStatus, getCurrentOrders};
