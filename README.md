@@ -19,6 +19,10 @@
     - [ClientRouter](#ClientRouter)
     - [EmployeeRouter](#EmployeeRouter)
     - [UserRouter](#UserRouter)
+    - [authorizeAdmin](#authorizeAdmin)
+    - [authorizeClient](#authorizeClient)
+    - [authorizeWorker](#authorizeWorker)
+    - [validateToken](#validateToken)
 * [Schemat bazy danych](#schema)
     - [adminvars](#adminvars)
     - [orders](#orders)
@@ -34,10 +38,11 @@
 
 
 ## Proste operacje CRUD
+* [registerClient](#registerClient) (transakcja)
 * [loginUser](#loginUser)
 * [changePassword](#changePassword)
 * [currentUser](#currentUser)
-* [deleteUser](#deleteUser)
+* [deleteUser](#deleteUser) (transakcja)
 * [changeAddress](#changeAddress)
 * [addIngredient](#addIngredient)
 * [addPizza](#addPizza)
@@ -45,16 +50,24 @@
 
 
 ## Operacje o charakterze transakcyjnym
-* [registerClient](#registerClient) 
-* [changeOrderStatus](#changeOrderStatus)
 * [registerWorker](#registerWorker)
 * [makeOrder](#makeOrder)
+* [changeOrderStatus](#changeOrderStatus)
 * [updateIngredientStatus](#updateIngredientStatus)
-* [getAvailablePizzas](#getAvailablePizzas)
+* [ratePizza](#ratePizza)
+
+
+## Inne operacje
+* [rateOrder](#rateOrder)
+
 
 ## Zapytania raportujące 
-* [getCurrentOrders](#getCurrentOrders) (dla pracownika)
+* [bestRatedEmployees](#bestRatedEmployees)
+* [getOrderHistory](#getOrderHistory)
+* [mostBeneficialPizzasLastYear](#mostBeneficialPizzasLastYear)
 * [getAvailablePizzas](#getAvailablePizzas)
+* [getCurrentOrders](#getCurrentOrders) (dla pracownika)
+
 
 
 
@@ -65,7 +78,7 @@
 
 
 Oto nasz główny plik, który uruchamiany:
-app.js <a id="app.js"></a>
+### app <a id="app.js"></a>
 ```js
 const express = require('express');
 const cors = require('cors');
@@ -94,7 +107,7 @@ app.listen(port, () => {
 });
 ```
 
-errorHandler: <a id="errorHandler"></a>
+### errorHandler <a id="errorHandler"></a>
 ```js
 const { constants } = require('../Constants');
 const errorHandler = (err, req, res, next) => {
@@ -124,7 +137,7 @@ module.exports = errorHandler;
 ```
 
 Oto nasze routery:
-AdminRouter.js: <a id="AdminRouter"></a>
+### AdminRouter <a id="AdminRouter"></a>
 ```js
 const express = require("express");
 const router = express.Router();
@@ -152,7 +165,7 @@ router.get("/most_generous_clients", validateToken, authorizeAdmin, mostGenerous
 module.exports = router;
 ```
 
-ClientRouter: <a id="ClientRouter"></a>
+### ClientRouter: <a id="ClientRouter"></a>
 ```js
 const express = require("express");
 const router = express.Router();
@@ -173,7 +186,7 @@ router.get("/order_history", validateToken, authorizeClient, getOrderHistory);
 module.exports = router;
 ```
 
-EmployeeRouter: <a id="EmployeeRouter"></a>
+### EmployeeRouter: <a id="EmployeeRouter"></a>
 ```js
 const express = require("express");
 const router = express.Router();
@@ -190,7 +203,7 @@ router.patch("/change_order_status", validateToken, authorizeWorker, changeOrder
 module.exports = router;
 ```
 
-UserRouter: <a id="UserRouter"></a>
+### UserRouter: <a id="UserRouter"></a>
 ```js
 const express = require('express');
 const router = express.Router();
@@ -211,7 +224,7 @@ router.patch('/change_password', validateToken, changePassword);
 module.exports = router;
 ```
 
-validateToken: <a id="validateToken"></a>
+### validateToken: <a id="validateToken"></a>
 ```js
 const asyncHandler  = require('express-async-handler');
 const jwt = require('jsonwebtoken');
@@ -242,6 +255,51 @@ const validateToken = asyncHandler(async (req, res, next) => {
 });
 
 module.exports = validateToken;
+```
+
+### authorizeAdmin <a id="authorizeAdmin"> </a>
+```js
+const asyncHandler  = require('express-async-handler');
+
+
+const authorizeAdmin = asyncHandler(async (req, res, next) => {
+    if (req.user.role !== "admin") {
+        res.status(403);
+        throw new Error(`You are not authorized to view this page as an  ${req.user.role}`);
+    }
+    next();
+});
+```
+### authorizeClient <a id="authorizeClient"> </a>
+```js
+const asyncHandler  = require('express-async-handler');
+
+
+const authorizeClient = asyncHandler(async (req, res, next) => {
+    if (req.user.role !== "client") {
+        res.status(403);
+        throw new Error(`You are not authorized to view this page as a ${req.user.role}`);
+    }
+    next();
+});
+
+module.exports = authorizeClient;
+```
+
+### authorizeWorker <a id="authorizeWorker"> </a>
+```js
+const asyncHandler  = require('express-async-handler');
+
+
+const authorizeWorker = asyncHandler(async (req, res, next) => {
+  if (req.user.role !== "worker") {
+    res.status(403);
+    throw new Error(`You are not authorized to view this page as a ${req.user.role}`);
+  }
+  next();
+});
+
+module.exports = authorizeWorker;
 ```
 
 
@@ -849,191 +907,6 @@ const changeAddress = asyncHandler(async (req, res) => {
 ![](report_screens_2/image-3.png)
 ### Operacje o charakterze transakcyjnym
 
-
-Najbardziej znacząca:
-### changeOrderStatus <a id="changeOrderStatus"> </a>
-
-### Statusy zamówienia:
-- 0 - zamówienie wprowadzone do bazy, przypisany pracownik
-- 1 - zamówienie przyjęte przez przypisanego pracownika
-- -1 odrzucono zamówienie
-- 2 Pizza w przygotowaniu, oczekiwanie na dostawcę, jeśli wybrano zamówienie z dostawą, w przeciwnym razie oczekiwanie na odbiór przez klienta
-- 3.1 pizza odebrana przez dostawcę
-- 3.2 pizza odebrana przez klienta
-- 4 pizza dostarczona
-- -4 problemy przy dostawie
-- 
-```js
-
-const changeOrderStatus = asyncHandler(async (req, res, next) => {
-  const session = await mongoose.startSession();
-  await session.startTransaction();
-  try {
-    const {new_status, order_id} = req.body;
-    const orderId = new ObjectId(order_id);
-    const order = await Order.findOne({_id: orderId}, null, {session});
-    if (!order) {
-      res.status(400);
-      throw new Error("Order doesn't exist");
-    }
-    if (new_status === '1') {
-      if (order.status === '0') {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-      } else {
-        throw new Error(`Invalid new status. Current status is: ${order.status}`);
-      }
-    } else if (new_status === "2") {
-      if (order.status === "1") {
-        if (order.to_deliver) {
-          const deliverer = await findDeliverer(session.id);
-          if (deliverer) {
-            await Order.updateOne({_id: orderId}, {status: new_status, deliverer_id: deliverer._id}, {session});
-            await Worker.updateOne({_id: deliverer._id}, {$push: {current_orders: orderId}}, {session});
-          }
-        }
-        else {
-          await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-        }
-      } else {
-        throw new Error(`Invalid new status. Current status is: ${order.status}`);
-      }
-    } else if (new_status === '3.1') {
-      if (!order.to_deliver) {
-        throw new Error(`Invalid new status. Collection in person. This order's to_deliver is set to ${order.to_deliver}`);
-      }
-      if (order.status === "2") {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-      } else {
-        throw new Error(`Invalid new status. Current status is: ${order.status}`);
-      }
-    } else if (new_status === '3.2') {
-      if (order.status === "2") {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-        await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
-        await Worker.updateOne({_id: order.employee_id},
-          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        await Client.updateOne({_id: order.client_id},
-            {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
-        let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
-        saved_amount = parseFloat(saved_amount.toFixed(2));
-
-        if (saved_amount > 0) {
-          await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
-        }
-        if (the_order.discount_id) {
-          await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
-        }
-      } else {
-        throw new Error(`Invalid new status. Current status is: ${order.status}`);
-      }
-
-    } else if (new_status === '-1') {
-      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-      await Worker.updateOne({_id: order.employee_id}, {
-        $pull: {current_orders: orderId},
-        $push: {orders_history: orderId}
-      }, {session});
-      await Client.updateOne({_id: order.client_id},
-          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-    } else if (new_status === '4') {
-      if (order.status === "3.1") {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-        await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
-        await Worker.updateMany({_id: {$in: [order.employee_id, order.deliverer_id]}},
-          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        await Client.updateOne({_id: order.client_id},
-            {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
-        let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
-        saved_amount = parseFloat(saved_amount.toFixed(2));
-        if (saved_amount > 0) {
-          await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
-        }
-        if (the_order.discount_id) {
-          await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
-        }
-      } else {
-        throw new Error(`Invalid new status. Current status is: ${order.status}`);
-      }
-    }  else if (new_status === '-4') {
-      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-      await Worker.updateMany({_id: {$in: [order.employee_id, order.deliverer_id]}},
-          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-      await Client.updateOne({_id: order.client_id},
-          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-    }
-    await session.commitTransaction();
-    res.status(201).json({message: `Order status set to ${new_status}`});
-  }
-  catch(err) {
-    await session.abortTransaction();
-    next(err);
-  } finally {
-    await session.endSession();
-  }
-});
-
-
-
-```
-![](report_screens_2/image-4.png)
-![](report_screens_2/image-6.png)
-![](report_screens_2/image-5.png)
-
-
-
-
-Najpierw może złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
-![](report_screens_adam/image-22.png)
-Dodało się również pole w current_orders w clients:
-![](report_screens_adam/image-23.png)
-(Jako 6. pole)
-i w workers:
-![](report_screens_adam/image-24.png)
-
-Przetestujmy przy okazji obsługę błędów, czyli spróbujmy np. zmienić status od razu na 4:
-![](report_screens_adam/image-25.png)
-
-Zmieńmy na razie status na 1(zamówienie przyjęte). To jeszcze nic nie zmienia, tylko wartość statusu:
-![](report_screens_adam/image-26.png)
-![](report_screens_adam/image-27.png)
-
-Teraz zmieńmy status na 2. W przypadku zamówienia bez dostawy to też zmienia tylko wartość statusu:
-![](report_screens_adam/image-28.png)
-![](report_screens_adam/image-29.png)
-
-I zmieńmy status na 3.2, czyli pizza odebrana przez klienta:
-![](report_screens_adam/image-30.png)
-![](report_screens_adam/image-31.png)
-Zamówienie przeniosło się od orders_history klienta oraz zwiększyła się wartość discount_saved, czyli pola mówiącego ile dany klient zaoszczędził na zniżkach:
-![](report_screens_adam/image-32.png)
-To samo w przypadku pracownika:
-![](report_screens_adam/image-33.png)
-
-Teraz zróbmy zamówienie z dostawą:
-![](report_screens_adam/image-34.png)
-![](report_screens_adam/image-35.png)
-
-Zmieńmy status na 1. To na razie zmienia tylko wartość statusu:
-![](report_screens_adam/image-36.png)
-![](report_screens_adam/image-37.png)
-
-Teraz zmieńmy status na 2. Powinien zostać przypisany dostawca:
-![](report_screens_adam/image-38.png)
-![](report_screens_adam/image-39.png)
-Status się zaktualizował i na końcu dokumentu dodało się pole deliverer_id.
-
-Zmieńmy status na 3.1 - pizza odebrana przez kuriera:
-![](report_screens_adam/image-40.png)
-
-I w końcu na 4 - pizza dostarczona:
-![](report_screens_adam/image-41.png)
-![](report_screens_adam/image-42.png)
-![](report_screens_adam/image-43.png)
-![](report_screens_adam/image-44.png)
-
-Widać dodanego dostawcę
 ### registerWorker <a id="registerWorker"> </a>
 dodajemy dokumenty do dwóch różnych kolekcji
 ```js
@@ -1275,38 +1148,181 @@ I spróbujmy coś zamówić:
 
 
 
+### changeOrderStatus <a id="changeOrderStatus"> </a>
 
+### Statusy zamówienia:
+- 0 - zamówienie wprowadzone do bazy, przypisany pracownik
+- 1 - zamówienie przyjęte przez przypisanego pracownika
+- -1 odrzucono zamówienie
+- 2 Pizza w przygotowaniu, oczekiwanie na dostawcę, jeśli wybrano zamówienie z dostawą, w przeciwnym razie oczekiwanie na odbiór przez klienta
+- 3.1 pizza odebrana przez dostawcę
+- 3.2 pizza odebrana przez klienta
+- 4 pizza dostarczona
+- -4 problemy przy dostawie
+- 
 ```js
-const deleteUser = asyncHandler(async (req, res) => {
-    const session = await mongoose.startSession();
-    await session.startTransaction();
-    try{
-        const {email, password} = req.body;
-        if(!email || !password){
-            res.status(400);
-            throw new Error("Please fill in all fields");
-        }
-        const user = await User.findOne({ email }, { session });
-        if (user && (await bcrypt.compare(password, user.password))) {
-            await User.deleteOne({email});
-            await Client.deleteOne({_id: user.id});
-            await session.commitTransaction();
-            res.status(200).json({email, message: "User deleted"});
+
+const changeOrderStatus = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const {new_status, order_id} = req.body;
+    const orderId = new ObjectId(order_id);
+    const order = await Order.findOne({_id: orderId}, null, {session});
+    if (!order) {
+      res.status(400);
+      throw new Error("Order doesn't exist");
+    }
+    if (new_status === '1') {
+      if (order.status === '0') {
+        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      } else {
+        throw new Error(`Invalid new status. Current status is: ${order.status}`);
+      }
+    } else if (new_status === "2") {
+      if (order.status === "1") {
+        if (order.to_deliver) {
+          const deliverer = await findDeliverer(session.id);
+          if (deliverer) {
+            await Order.updateOne({_id: orderId}, {status: new_status, deliverer_id: deliverer._id}, {session});
+            await Worker.updateOne({_id: deliverer._id}, {$push: {current_orders: orderId}}, {session});
+          }
         }
         else {
-            res.status(401);
-            throw new Error("There is no user with this email or password is incorrect");
-
+          await Order.updateOne({_id: orderId}, {status: new_status}, {session});
         }
+      } else {
+        throw new Error(`Invalid new status. Current status is: ${order.status}`);
+      }
+    } else if (new_status === '3.1') {
+      if (!order.to_deliver) {
+        throw new Error(`Invalid new status. Collection in person. This order's to_deliver is set to ${order.to_deliver}`);
+      }
+      if (order.status === "2") {
+        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      } else {
+        throw new Error(`Invalid new status. Current status is: ${order.status}`);
+      }
+    } else if (new_status === '3.2') {
+      if (order.status === "2") {
+        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+        await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
+        await Worker.updateOne({_id: order.employee_id},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+        await Client.updateOne({_id: order.client_id},
+            {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+        const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
+        let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
+        saved_amount = parseFloat(saved_amount.toFixed(2));
+
+        if (saved_amount > 0) {
+          await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
+        }
+        if (the_order.discount_id) {
+          await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
+        }
+      } else {
+        throw new Error(`Invalid new status. Current status is: ${order.status}`);
+      }
+
+    } else if (new_status === '-1') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Worker.updateOne({_id: order.employee_id}, {
+        $pull: {current_orders: orderId},
+        $push: {orders_history: orderId}
+      }, {session});
+      await Client.updateOne({_id: order.client_id},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+    } else if (new_status === '4') {
+      if (order.status === "3.1") {
+        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+        await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
+        await Worker.updateMany({_id: {$in: [order.employee_id, order.deliverer_id]}},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+        await Client.updateOne({_id: order.client_id},
+            {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+        const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
+        let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
+        saved_amount = parseFloat(saved_amount.toFixed(2));
+        if (saved_amount > 0) {
+          await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
+        }
+        if (the_order.discount_id) {
+          await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
+        }
+      } else {
+        throw new Error(`Invalid new status. Current status is: ${order.status}`);
+      }
+    }  else if (new_status === '-4') {
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Worker.updateMany({_id: {$in: [order.employee_id, order.deliverer_id]}},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+      await Client.updateOne({_id: order.client_id},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
     }
-    catch (error) {
-        await session.abortTransaction();
-        next(error);
-    } finally {
-        await session.endSession();
-    }
+    await session.commitTransaction();
+    res.status(201).json({message: `Order status set to ${new_status}`});
+  }
+  catch(err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
 });
+
+
+
 ```
+Najpierw może złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
+![](report_screens_adam/image-22.png)
+Dodało się również pole w current_orders w clients:
+![](report_screens_adam/image-23.png)
+(Jako 6. pole)
+i w workers:
+![](report_screens_adam/image-24.png)
+
+Przetestujmy przy okazji obsługę błędów, czyli spróbujmy np. zmienić status od razu na 4:
+![](report_screens_adam/image-25.png)
+
+Zmieńmy na razie status na 1(zamówienie przyjęte). To jeszcze nic nie zmienia, tylko wartość statusu:
+![](report_screens_adam/image-26.png)
+![](report_screens_adam/image-27.png)
+
+Teraz zmieńmy status na 2. W przypadku zamówienia bez dostawy to też zmienia tylko wartość statusu:
+![](report_screens_adam/image-28.png)
+![](report_screens_adam/image-29.png)
+
+I zmieńmy status na 3.2, czyli pizza odebrana przez klienta:
+![](report_screens_adam/image-30.png)
+![](report_screens_adam/image-31.png)
+Zamówienie przeniosło się od orders_history klienta oraz zwiększyła się wartość discount_saved, czyli pola mówiącego ile dany klient zaoszczędził na zniżkach:
+![](report_screens_adam/image-32.png)
+To samo w przypadku pracownika:
+![](report_screens_adam/image-33.png)
+
+Teraz zróbmy zamówienie z dostawą:
+![](report_screens_adam/image-34.png)
+![](report_screens_adam/image-35.png)
+
+Zmieńmy status na 1. To na razie zmienia tylko wartość statusu:
+![](report_screens_adam/image-36.png)
+![](report_screens_adam/image-37.png)
+
+Teraz zmieńmy status na 2. Powinien zostać przypisany dostawca:
+![](report_screens_adam/image-38.png)
+![](report_screens_adam/image-39.png)
+Status się zaktualizował i na końcu dokumentu dodało się pole deliverer_id.
+
+Zmieńmy status na 3.1 - pizza odebrana przez kuriera:
+![](report_screens_adam/image-40.png)
+
+I w końcu na 4 - pizza dostarczona:
+![](report_screens_adam/image-41.png)
+![](report_screens_adam/image-42.png)
+![](report_screens_adam/image-43.png)
+![](report_screens_adam/image-44.png)
+
 
 
 ### updateIngredientStatus <a id="updateIngredientStatus"> </a>
@@ -1369,7 +1385,7 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
 ![](report_screens/image-56.png)
 
 
-
+### ratePizza <a id="ratePizza"> </a>
 ```js
 const ratePizza = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
@@ -1427,8 +1443,9 @@ Nie zaktualizowało się. Nie znikła także ocena z kolekcji clients:
 Spróbujmy jeszcze ocenić pizzę, której ten klient nie zamówił:
 ![](report_screens_adam/image-71.png)
 
-### Operacje o charakterze raportującym
 
+
+### bestRatedEmployees <a id ="bestRatedEmployees"> </a>
 Najlepiej oceniani pracownicy kuchni(w danym okresie):
 Pracownicy są oceniani w kolekcji orders. Mamy tam pole `grade`, które zawiera pola `grade_food`, `grade_delivery`, `comment`.
 ```js
@@ -1506,6 +1523,7 @@ Dodajmy jeszcze jakieś zamówienia i oceny innemu pracownikowi. Oceńmy zamówi
 ![](report_screens_adam/image-54.png)
 ![](report_screens_adam/image-55.png)
 
+### getOrderHistory <a id="getOrderHistory"> </a>
 ```js
 const getOrderHistory = asyncHandler(async (req, res, next) => {
   try {
@@ -1655,7 +1673,10 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
 ```
 
 
+![](image.png)
 
+
+### mostBeneficialPizzasLastYear <a id="mostBeneficialPizzasLastYear"> </a>
 
 ```js
 const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
@@ -1748,7 +1769,7 @@ Przykładowe wykonanie:
 ![](report_screens_adam/image-72.png)
 
 
-
+### getAvailablePizzas <a id="getAvailablePizzas"> </a>
 ```js
 const getAvailablePizzas = asyncHandler(async (req, res, next) => {
   try {
@@ -2131,6 +2152,7 @@ Teraz przetestujmy obłsugę błędów:
 ![](report_screens/image-24.png)
 ![](report_screens/image-25.png)
 
+### rateOrder <a id="rateOrder"> </a>
 
 ```js
 const rateOrder = asyncHandler(async (req, res, next) => {
@@ -2174,19 +2196,12 @@ const rateOrder = asyncHandler(async (req, res, next) => {
       grade_delivery,
       comment
     });
-
-### getAvailablePizzas (pobranie pizz, które są aktualnie dostępne) <a id="getAvailablePizzas"> </a>
-
-```js
-const getAvailablePizzas = asyncHandler(async (req, res, next) => {
-  try {
-    const pizzas = await Pizza.find({available: true}, 'name menu_number ingredients price available');
-    res.status(200).json(pizzas);
   } catch (err) {
     next(err);
   }
 });
 ```
+
 
 Najpierw spróbujmy ocenić jeszcze nie ukończone zamówienie:
 ![](report_screens_adam/image-73.png)
