@@ -18,7 +18,39 @@ const ObjectId = mongoose.Types.ObjectId;
 
 const getAvailablePizzas = asyncHandler(async (req, res, next) => {
   try {
-    const pizzas = await Pizza.find({available: true}, 'name menu_number ingredients price available');
+    const pizzas = await Pizza.aggregate([
+      {
+        $match: {available: true}
+      },
+      {
+        $lookup: {
+          from: "ingredients",
+          localField: "ingredients",
+          foreignField: "_id",
+          as: "ingredient_details"
+        }
+      },
+      {
+        $unwind: "$ingredient_details"
+      },
+      {
+        $group: {
+          _id: "$_id",
+          menu_number: {$first: "$menu_number"},
+          ingredients: {
+            $push: {
+              name: "$ingredient_details.name",
+              vegan: "$ingredient_details.vegan",
+              vegetarian: "$ingredient_details.vegetarian"
+            }
+          },
+          name: {$first: "$name"},
+          price: {$first: "$price"},
+          grades: {$first: "$grades"},
+          available: {$first: "$available"}
+        }
+      }
+    ]);
     res.status(200).json(pizzas);
   } catch (err) {
     next(err);
@@ -27,7 +59,7 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
 
 async function checkPizzasAvailability(basket, res, sessionId) {
   const session = await mongoose.startSession({_id: sessionId});
-  const pizzaIds = basket.map(item => item.id);
+  const pizzaIds = basket.map(item => item.pizza_id);
   const pizzas = await Pizza.find({ _id: { $in: pizzaIds } },null,  {session});
   const unavailablePizzas = pizzas.filter(pizza => !pizza.available);
 
@@ -91,8 +123,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
         res.status(404);
         throw new Error("Discount not found");
       }
-      const now = new Date();
-      const available = isDateBetween(now, the_discount.start_date, the_discount.end_date);
+      const available = isDateBetween(new Date(order_date), the_discount.start_date, the_discount.end_date);
       if (!available){
         throw new Error("Discount not available");
       }
@@ -184,16 +215,30 @@ const makeOrder = asyncHandler(async (req, res, next) => {
 const rateOrder = asyncHandler(async (req, res, next) => {
   try {
     const {email, id, role} = req.user;
-    const { order_id, grade_food, grade_delivery, comment } = req.body;
-    if (!grade_food || !grade_delivery) {
+    let { order_id, grade_food, grade_delivery, comment } = req.body;
+    if (!grade_food) {
+      res.status(400);
       throw new Error("Please fill in all fields");
     }
     const order = await Order.findOne({_id: order_id});
+    if (order.to_deliver && !grade_delivery) {
+      res.status(400);
+      throw new Error("Please fill in all fields");
+    }
     if (!order) {
+      res.status(400);
       throw new Error("Order doesn't exist");
     }
+    if (!order.client_id.equals(new ObjectId(id))) {
+      res.status(400);
+      throw new Error("Order is not yours");
+    }
     if (order.status !== '3.2' && order.status !== '4') {
+      res.status(400);
       throw new Error("Invalid order status for rating");
+    }
+    if (!order.to_deliver) {
+      grade_delivery = null;
     }
     const order_id_ObjId = new ObjectId(order_id);
     await Order.updateOne({ _id: order_id_ObjId }, {$set: {grade:
@@ -297,7 +342,10 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
         }
       },
       {
-        $unwind: "$employee_details"
+        $unwind: {
+          path: "$employee_details",
+          preserveNullAndEmptyArrays: true
+        }
       },
       {
         $lookup: {
@@ -363,5 +411,42 @@ const getMostlyOftenEatenPizzas = asyncHandler(async (req, res) => {
   const { date_from, date_to, min_stars } = req.body;
 });
 
+const ratePizza = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const {email, id, role} = req.user;
+    const {pizza_id, stars} = req.body;
+    const id_ObjId = new ObjectId(id);
+    const pizza_id_ObjId = new ObjectId(pizza_id);
+    const existingOrderWithThisPizza = await Order.findOne({
+      client_id: id_ObjId,
+      status: {$in: ['3.2', '4']},
+      "pizzas.pizza_id": pizza_id_ObjId
+    }, null, {session});
+    if (!existingOrderWithThisPizza) {
+      res.status(400);
+      throw new Error("You haven't yet finished an order with this pizza");
+    }
+    const existingGrade = await Client.findOne({_id: id_ObjId, "grades.pizza_id": pizza_id_ObjId});
+    if (existingGrade) {
+      const currentStars = existingGrade.grades.find((item) => item.pizza_id = pizza_id_ObjId).stars;
+      await Client.updateOne({_id: id_ObjId}, {$pull: {grades: {pizza_id: pizza_id_ObjId}}}, {session});
+      await Pizza.updateOne({_id: pizza_id_ObjId}, {$inc: {"grades.points_sum": -currentStars, "grades.grade_count": -1}}, {session});
+    }
+    await Pizza.updateOne({_id: pizza_id_ObjId}, {$inc: {"grades.points_sum": stars, "grades.grade_count": 1}}, {session});
+    await Client.updateOne({_id: id_ObjId}, {$push: {grades: {pizza_id: pizza_id_ObjId, stars}}}, {runValidators: true, session});
+    await session.commitTransaction();
+    res.status(200).json({
+      message: `Pizza rated, stars: ${stars}`
+    })
+  } catch(error) {
+    await session.abortTransaction();
+    next(error);
+  } finally {
+    await session.endSession();
+  }
+});
 
-module.exports = { getAvailablePizzas, makeOrder, rateOrder, getOrderHistory };
+
+module.exports = { getAvailablePizzas, makeOrder, rateOrder, getOrderHistory, ratePizza };

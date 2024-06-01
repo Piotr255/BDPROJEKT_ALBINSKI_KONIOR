@@ -87,6 +87,7 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("Order doesn't exist");
     }
+    let result_json = {};
     if (new_status === '1') {
       if (order.status === '0') {
         await Order.updateOne({_id: orderId}, {status: new_status}, {session});
@@ -100,6 +101,9 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
           if (deliverer) {
             await Order.updateOne({_id: orderId}, {status: new_status, deliverer_id: deliverer._id}, {session});
             await Worker.updateOne({_id: deliverer._id}, {$push: {current_orders: orderId}}, {session});
+            result_json = {
+              chosen_deliverer: deliverer._id
+            }
           }
         }
         else {
@@ -175,7 +179,10 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
           {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
     }
     await session.commitTransaction();
-    res.status(201).json({message: `Order status set to ${new_status}`});
+    res.status(201).json({
+      message: `Order status set to ${new_status}`,
+      result_json
+    });
   }
   catch(err) {
     await session.abortTransaction();

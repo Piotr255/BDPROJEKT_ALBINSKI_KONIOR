@@ -7,7 +7,8 @@ const workerSchema = new mongoose.Schema({
     },
     worker_type: {
         type: String,
-        required: true
+        required: true,
+        enum: ["employee", "deliverer"]
     },
     salary: {
         type: Number,
@@ -23,7 +24,8 @@ const workerSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        required: true
+        required: true,
+        enum: ["active", "inactive"]
     },
     current_orders: {
         type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],

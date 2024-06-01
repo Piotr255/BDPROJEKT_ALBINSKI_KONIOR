@@ -313,6 +313,7 @@ const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
       {
         $project: {
           pizzas: 1,
+          total_price: 1,
           order_date: 1
         }
       },

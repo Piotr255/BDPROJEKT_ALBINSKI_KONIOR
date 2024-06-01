@@ -387,7 +387,17 @@ const clientSchema = new mongoose.Schema({
                 },
                 stars: {
                     type: Number,
-                    required: true}}],
+                    required: true,
+                    min: 1,
+                    max: 6}}],
+        default: []
+    },
+    current_orders: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+        default: []
+    },
+    orders_history: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
         default: []
     },
     current_orders: {
@@ -481,7 +491,8 @@ const workerSchema = new mongoose.Schema({
     },
     worker_type: {
         type: String,
-        required: true
+        required: true,
+        enum: ["employee", "deliverer"]
     },
     salary: {
         type: Number,
@@ -497,7 +508,8 @@ const workerSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        required: true
+        required: true,
+        enum: ["active", "inactive"]
     },
     current_orders: {
         type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
@@ -597,6 +609,7 @@ module.exports = addressSchema;
 - wyświetlenie ocen, jakie wystawił dany klient
 - sprawdzenie dostępności pizzy
 - sprawdzenie obecnych zamówień przypisanych pracownikowi i jego historii zamówień
+- wyświetlenie obecnych zamówień danego klienta i jego historii zamówień
 
 
 ### Proste operacje CRUD - ten etap projektu wykonujemy na kolekcji users
@@ -836,6 +849,7 @@ const changeAddress = asyncHandler(async (req, res) => {
 ![](report_screens_2/image-3.png)
 ### Operacje o charakterze transakcyjnym
 
+
 Najbardziej znacząca:
 ### changeOrderStatus <a id="changeOrderStatus"> </a>
 
@@ -961,10 +975,64 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
 });
 
 
+
 ```
 ![](report_screens_2/image-4.png)
 ![](report_screens_2/image-6.png)
 ![](report_screens_2/image-5.png)
+
+
+
+
+Najpierw może złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
+![](report_screens_adam/image-22.png)
+Dodało się również pole w current_orders w clients:
+![](report_screens_adam/image-23.png)
+(Jako 6. pole)
+i w workers:
+![](report_screens_adam/image-24.png)
+
+Przetestujmy przy okazji obsługę błędów, czyli spróbujmy np. zmienić status od razu na 4:
+![](report_screens_adam/image-25.png)
+
+Zmieńmy na razie status na 1(zamówienie przyjęte). To jeszcze nic nie zmienia, tylko wartość statusu:
+![](report_screens_adam/image-26.png)
+![](report_screens_adam/image-27.png)
+
+Teraz zmieńmy status na 2. W przypadku zamówienia bez dostawy to też zmienia tylko wartość statusu:
+![](report_screens_adam/image-28.png)
+![](report_screens_adam/image-29.png)
+
+I zmieńmy status na 3.2, czyli pizza odebrana przez klienta:
+![](report_screens_adam/image-30.png)
+![](report_screens_adam/image-31.png)
+Zamówienie przeniosło się od orders_history klienta oraz zwiększyła się wartość discount_saved, czyli pola mówiącego ile dany klient zaoszczędził na zniżkach:
+![](report_screens_adam/image-32.png)
+To samo w przypadku pracownika:
+![](report_screens_adam/image-33.png)
+
+Teraz zróbmy zamówienie z dostawą:
+![](report_screens_adam/image-34.png)
+![](report_screens_adam/image-35.png)
+
+Zmieńmy status na 1. To na razie zmienia tylko wartość statusu:
+![](report_screens_adam/image-36.png)
+![](report_screens_adam/image-37.png)
+
+Teraz zmieńmy status na 2. Powinien zostać przypisany dostawca:
+![](report_screens_adam/image-38.png)
+![](report_screens_adam/image-39.png)
+Status się zaktualizował i na końcu dokumentu dodało się pole deliverer_id.
+
+Zmieńmy status na 3.1 - pizza odebrana przez kuriera:
+![](report_screens_adam/image-40.png)
+
+I w końcu na 4 - pizza dostarczona:
+![](report_screens_adam/image-41.png)
+![](report_screens_adam/image-42.png)
+![](report_screens_adam/image-43.png)
+![](report_screens_adam/image-44.png)
+
 Widać dodanego dostawcę
 ### registerWorker <a id="registerWorker"> </a>
 dodajemy dokumenty do dwóch różnych kolekcji
@@ -1013,13 +1081,21 @@ const registerWorker = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](report_screens/image-26.png)
-![](report_screens/image-29.png)
-![](report_screens/image-28.png)
+![](report_screens_adam/image-2.png)
+![](report_screens_adam/image-6.png)
+Gdy spróbuję ponownie:
+![](report_screens_adam/image-4.png)
+nie wstawił się
+![](report_screens_adam/image-5.png)
 
 
-### makeOrder  <a id="makeOrder"> </a>
-dodajemy zamówienie do orders i do workers do pola current_orders
+
+makeOrder <a id="makeOrder"> </a>
+- dodajemy zamówienie do orders, a do pól current_orders w workers i current_orders w clients dodajemy orderId
+- Można użyć tylko jednej zniżki na zamówienie, klient wybiera z której zniżki korzysta
+- Przekazujemy order_date dla większej elastyczności tworzenia danych testowych
+- Zakładamy, że o każdej porze dnia jest dostępny jakiś dostawca. Nie przyporządkowujemy go przy składaniu zamówienia, lecz gdy pizza jest w przygotowaniu, przy zmianie statusu zamówienia. Gdy żaden pracownik kuchni nie jest dostępny, nie można złożyć zamówienia. Dostawcy, gdy ustawiają swój status na inactive, oznacza to, że nie przyjmują już więcej zamówień.
+
 ```js
 
 async function checkPizzasAvailability(basket, res, sessionId) {
@@ -1088,8 +1164,7 @@ const makeOrder = asyncHandler(async (req, res, next) => {
         res.status(404);
         throw new Error("Discount not found");
       }
-      const now = new Date();
-      const available = isDateBetween(now, the_discount.start_date, the_discount.end_date);
+      const available = isDateBetween(new Date(order_date), the_discount.start_date, the_discount.end_date);
       if (!available){
         throw new Error("Discount not available");
       }
@@ -1180,6 +1255,60 @@ const makeOrder = asyncHandler(async (req, res, next) => {
 ```
 
 
+![](report_screens_adam/image-12.png)
+![](report_screens_adam/image-13.png)
+![](report_screens_adam/image-14.png)
+![](report_screens_adam/image-15.png)
+
+Teraz przetestujmy obsługę błędów:
+![](report_screens_adam/image-16.png)
+![](report_screens_adam/image-17.png)
+Dodajemy niedostępną pizzę, spróbujemy ją dodać do zamówienia:
+![](report_screens_adam/image-18.png)
+![](report_screens_adam/image-19.png)
+Zmieńmy wszystkim pracownikom status na inactive:
+![](report_screens_adam/image-20.png)
+I spróbujmy coś zamówić:
+![](report_screens_adam/image-21.png)
+
+
+
+
+
+
+```js
+const deleteUser = asyncHandler(async (req, res) => {
+    const session = await mongoose.startSession();
+    await session.startTransaction();
+    try{
+        const {email, password} = req.body;
+        if(!email || !password){
+            res.status(400);
+            throw new Error("Please fill in all fields");
+        }
+        const user = await User.findOne({ email }, { session });
+        if (user && (await bcrypt.compare(password, user.password))) {
+            await User.deleteOne({email});
+            await Client.deleteOne({_id: user.id});
+            await session.commitTransaction();
+            res.status(200).json({email, message: "User deleted"});
+        }
+        else {
+            res.status(401);
+            throw new Error("There is no user with this email or password is incorrect");
+
+        }
+    }
+    catch (error) {
+        await session.abortTransaction();
+        next(error);
+    } finally {
+        await session.endSession();
+    }
+});
+```
+
+
 ### updateIngredientStatus <a id="updateIngredientStatus"> </a>
 nie tylko zmieniamy status obecności składnika na stanie, ale także ustawiamy odpowiednio pole available w pizzas, jeśli obecność lub nieobecność jakiegoś składnika powoduje, że już pizza jest dostępna lub niedostępna. 
 
@@ -1238,6 +1367,433 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
 ![](report_screens/image-54.png)
 ![](report_screens/image-55.png)
 ![](report_screens/image-56.png)
+
+
+
+```js
+const ratePizza = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const {email, id, role} = req.user;
+    const {pizza_id, stars} = req.body;
+    const id_ObjId = new ObjectId(id);
+    const pizza_id_ObjId = new ObjectId(pizza_id);
+    const existingOrderWithThisPizza = await Order.findOne({
+      client_id: id_ObjId,
+      status: {$in: ['3.2', '4']},
+      "pizzas.pizza_id": pizza_id_ObjId
+    }, null, {session});
+    if (!existingOrderWithThisPizza) {
+      res.status(400);
+      throw new Error("You haven't yet finished an order with this pizza");
+    }
+    const existingGrade = await Client.findOne({_id: id_ObjId, "grades.pizza_id": pizza_id_ObjId});
+    if (existingGrade) {
+      const currentStars = existingGrade.grades.find((item) => item.pizza_id = pizza_id_ObjId).stars;
+      await Client.updateOne({_id: id_ObjId}, {$pull: {grades: {pizza_id: pizza_id_ObjId}}}, {session});
+      await Pizza.updateOne({_id: pizza_id_ObjId}, {$inc: {"grades.points_sum": -currentStars, "grades.grade_count": -1}}, {session});
+    }
+    await Pizza.updateOne({_id: pizza_id_ObjId}, {$inc: {"grades.points_sum": stars, "grades.grade_count": 1}}, {session});
+    await Client.updateOne({_id: id_ObjId}, {$push: {grades: {pizza_id: pizza_id_ObjId, stars}}}, {runValidators: true, session});
+    await session.commitTransaction();
+    res.status(200).json({
+      message: `Pizza rated, stars: ${stars}`
+    })
+  } catch(error) {
+    await session.abortTransaction();
+    next(error);
+  } finally {
+    await session.endSession();
+  }
+});
+```
+
+![](report_screens_adam/image-61.png)
+![](report_screens_adam/image-62.png)
+![](report_screens_adam/image-63.png)
+Zmieńmy ocenę(tego samego klienta, tej samej pizzy) na inną:
+![](report_screens_adam/image-64.png)
+![](report_screens_adam/image-65.png)
+![](report_screens_adam/image-66.png)
+
+Przetestujmy błędy:
+Przetestujmy transakcję. W kolekcji clients mamy constraint na `grades.stars`, aby było w zakresie 1-6. Spróbujmy ustawić ocenę na np. 8. Zobaczmy, czy zaktualizuje się points_sum w pizzy(to zmieniamy jako pierwsze) - nie powinno.
+![](report_screens_adam/image-67.png)
+![](report_screens_adam/image-69.png)
+Nie zaktualizowało się. Nie znikła także ocena z kolekcji clients:
+![](report_screens_adam/image-70.png)
+
+Spróbujmy jeszcze ocenić pizzę, której ten klient nie zamówił:
+![](report_screens_adam/image-71.png)
+
+### Operacje o charakterze raportującym
+
+Najlepiej oceniani pracownicy kuchni(w danym okresie):
+Pracownicy są oceniani w kolekcji orders. Mamy tam pole `grade`, które zawiera pola `grade_food`, `grade_delivery`, `comment`.
+```js
+const bestRatedEmployees = asyncHandler(async (req, res, next) => {
+  try {
+    let {limit, date_from, date_to} = req.body;
+    if (!limit) {
+      throw new Error("Please provide a limit");
+    }
+    if (!date_from) {
+      date_from = new Date(0);
+    }
+    if (!date_to) {
+      date_to = new Date();
+    }
+
+    const result = await Order.aggregate([
+      {
+        $match: {
+          "grade": { $exists: true },
+          order_date: {
+            $gte: date_from,
+            $lte: date_to
+          }
+        }
+      },
+      {
+        $group: { // po prostu grupujemy pracowników i obliczamy dla każdego średnią ocenę grade_food
+          _id: {
+            employee_id: "$employee_id"
+          },
+          avg_grade_for_food: { $avg: "$grade.grade_food" }
+        }
+      },
+      {
+        $lookup: {
+          from: "workers",
+          localField: "_id.employee_id",
+          foreignField: "_id",
+          as: "employee_details"
+        }
+      },
+      {
+        $unwind: "$employee_details"
+      },
+      {
+        $project: {
+          _id: 0,
+          employee_name: "$employee_details.name",
+          avg_grade_for_food: 1,
+        }
+      },
+      {
+        $sort: { avg_grade_for_food: -1 }
+      },
+      {
+        $limit: limit
+      }
+    ]);
+    res.status(200).json(result);
+  } catch(error) {
+    next(error);
+  }
+});
+```
+
+Na obecny moment mamy dwa ukończone zamówienia w bazie, oba należą do tego samego pracownika, wystawmy im oceny:
+![](report_screens_adam/image-49.png)
+(Grade delivery jest na null, bo zamówienie było bez dostawy)
+![](report_screens_adam/image-50.png)
+![](report_screens_adam/image-51.png)
+![](report_screens_adam/image-52.png)
+Dodajmy jeszcze jakieś zamówienia i oceny innemu pracownikowi. Oceńmy zamówienia Jana Kowalskiego.
+![](report_screens_adam/image-53.png)
+![](report_screens_adam/image-54.png)
+![](report_screens_adam/image-55.png)
+
+```js
+const getOrderHistory = asyncHandler(async (req, res, next) => {
+  try {
+    const {email, id, role} = req.user;
+    let {limit, date_from, date_to} = req.body;
+    if(!limit) {
+      throw new Error("Please provide a limit");
+    }
+    if( !date_from ) {
+      date_from = new Date(0);
+    }
+    if( !date_to ) {
+      date_to = new Date();
+    }
+    const id_ObjId = new ObjectId(id);
+    const the_client = await Client.findOne({_id: id_ObjId});
+    const result = await Order.aggregate([
+      {
+        $match: {
+          "client_id": id_ObjId,
+          "order_date": {
+            $gte: date_from,
+            $lte: date_to
+          }
+        }
+      },
+      {
+        $limit: limit
+      },
+      {
+        $unwind: "$pizzas"
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "pizzas.pizza_id",
+          foreignField: "_id",
+          as: "pizza_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$pizza_details",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: "ingredients",
+          localField: "pizza_details.ingredients",
+          foreignField: "_id",
+          as: "ingredient_details"
+        }
+      },
+      {
+        $lookup: {
+          from: "discounts",
+          localField: "discount_id",
+          foreignField: "_id",
+          as: "discount_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$discount_details",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "discount_details.pizza_ids",
+          foreignField: "_id",
+          as: "discount_pizza_names"
+        }
+      },
+      {
+        $lookup: {
+          from: "workers",
+          localField: "employee_id",
+          foreignField: "_id",
+          as: "employee_details"
+        }
+      },
+      {
+        $unwind: "$employee_details"
+      },
+      {
+        $lookup: {
+          from: "workers",
+          localField: "deliverer_id",
+          foreignField: "_id",
+          as: "deliverer_details"
+        }
+      },
+      {
+        $unwind: {
+          path: "$deliverer_details",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          "client_address._id": 0
+        }
+      },
+      {
+        $group: {
+          _id: "$_id",
+          employee_name: {$first: "$employee_details.name"},
+          deliverer_name: {$first: "$deliverer_details.name"},
+          client_address: {$first: "$client_address"},
+          order_notes: {$first: "$order_notes"},
+          order_date: {$first: "$order_date"},
+          status: {$first: "$status"},
+          to_deliver: {$first: "$to_deliver"},
+          total_price: {$first: "$total_price"},
+          pizzas: {
+            $push: {
+              pizza_price: "$pizzas.price",
+              pizza_name: "$pizza_details.name",
+              count: "$pizzas.count",
+              ingredients: "$ingredient_details.name"
+            }
+          },
+          discount_details: {
+            $first: {
+              discount_name: "$discount_details.name",
+              discount_value: "$discount_details.value",
+              pizza_names: "$discount_pizza_names.name"
+            }
+          }
+        }
+      }
+    ]);
+    console.log(result);
+    res.status(200).json({
+      client_name: the_client.name,
+      result,
+      date_from,
+      date_to
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+```
+
+
+
+
+```js
+const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
+  try {
+    const now = new Date();
+    const oneYearAgo = new Date(now);
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+    const result = await Order.aggregate([
+      {
+        $match: {
+          order_date: {
+            $gte: oneYearAgo,
+            $lte: now
+          }
+        }
+      },
+      {
+        $project: {
+          pizzas: 1,
+          order_date: 1
+        }
+      },
+      {
+        $unwind: "$pizzas"
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: "$order_date" },
+            pizza_id: "$pizzas.pizza_id"
+          },
+          total_profit: {
+            $sum: {
+              $multiply: [
+                "$pizzas.current_price",
+                "$pizzas.count",
+                { $subtract: [1, "$pizzas.discount"] }
+              ]
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "_id.pizza_id",
+          foreignField: "_id",
+          as: "pizza_details"
+        }
+      },
+      {
+        $unwind: "$pizza_details"
+      },
+      {
+        $group: {
+          _id: {
+            month: "$_id.month"
+          },
+          pizzas: {
+            $push: {
+              pizza_name: "$pizza_details.name",
+              total_profit: "$total_profit"
+            }
+          },
+          total_profit_this_month: { $sum: "$total_profit" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          month: "$_id.month",
+          pizzas: 1,
+          total_profit_this_month: 1
+        }
+      },
+      {
+        $sort: {
+          total_profit_this_month: -1
+        }
+      }
+    ]);
+    res.status(200).json(result);
+  } catch(error) {
+    next(error);
+  }
+});
+```
+Przykładowe wykonanie:
+![](report_screens_adam/image-72.png)
+
+
+
+```js
+const getAvailablePizzas = asyncHandler(async (req, res, next) => {
+  try {
+    const pizzas = await Pizza.aggregate([
+      {
+        $match: {available: true}
+      },
+      {
+        $lookup: {
+          from: "ingredients",
+          localField: "ingredients",
+          foreignField: "_id",
+          as: "ingredient_details"
+        }
+      },
+      {
+        $unwind: "$ingredient_details"
+      },
+      {
+        $group: {
+          _id: "$_id",
+          menu_number: {$first: "$menu_number"},
+          ingredients: {
+            $push: {
+              name: "$ingredient_details.name",
+              vegan: "$ingredient_details.vegan",
+              vegetarian: "$ingredient_details.vegetarian"
+            }
+          },
+          name: {$first: "$name"},
+          price: {$first: "$price"},
+          grades: {$first: "$grades"},
+          available: {$first: "$available"}
+        }
+      }
+    ]);
+    res.status(200).json(pizzas);
+  } catch (err) {
+    next(err);
+  }
+});
+```
+
+![](report_screens_adam/image-60.png)
+(Ocen brak - wcześniej ocenialiśmy zamówienia, ocenianie pizz jest realizowane osobno)
 
 
 ### getCurrentOrders (dla pracownika) <a id="getCurrentOrders"> </a>
@@ -1576,6 +2132,49 @@ Teraz przetestujmy obłsugę błędów:
 ![](report_screens/image-25.png)
 
 
+```js
+const rateOrder = asyncHandler(async (req, res, next) => {
+  try {
+    const {email, id, role} = req.user;
+    let { order_id, grade_food, grade_delivery, comment } = req.body;
+    if (!grade_food) {
+      res.status(400);
+      throw new Error("Please fill in all fields");
+    }
+    const order = await Order.findOne({_id: order_id});
+    if (order.to_deliver && !grade_delivery) {
+      res.status(400);
+      throw new Error("Please fill in all fields");
+    }
+    if (!order) {
+      res.status(400);
+      throw new Error("Order doesn't exist");
+    }
+    if (!order.client_id.equals(new ObjectId(id))) {
+      res.status(400);
+      throw new Error("Order is not yours");
+    }
+    if (order.status !== '3.2' && order.status !== '4') {
+      res.status(400);
+      throw new Error("Invalid order status for rating");
+    }
+    if (!order.to_deliver) {
+      grade_delivery = null;
+    }
+    const order_id_ObjId = new ObjectId(order_id);
+    await Order.updateOne({ _id: order_id_ObjId }, {$set: {grade:
+        {
+          grade_food,
+          grade_delivery,
+          comment
+        }}});
+    res.status(200).json({
+      message: "Order has been rated",
+      grade_food,
+      grade_delivery,
+      comment
+    });
+
 ### getAvailablePizzas (pobranie pizz, które są aktualnie dostępne) <a id="getAvailablePizzas"> </a>
 
 ```js
@@ -1589,7 +2188,22 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](report_screens/image-47.png)
-![](report_screens/image-48.png)
+Najpierw spróbujmy ocenić jeszcze nie ukończone zamówienie:
+![](report_screens_adam/image-73.png)
+Teraz zaktualizujmy status tego zamówienia:
+![](report_screens_adam/image-74.png)
+Ponownie spróbujmy ocenić:
+![](report_screens_adam/image-75.png)
+![](report_screens_adam/image-76.png)
 
-
+Testy błędów:
+![](report_screens_adam/image-77.png)
+![](report_screens_adam/image-78.png)
+![](report_screens_adam/image-79.png)
+Poprawnie się zaktualizowało:
+![](report_screens_adam/image-80.png)
+Zamówienie, które nie istnieje:
+![](report_screens_adam/image-81.png)\
+I spróbujmy się jeszcze zalogować jako inny użytkownik:
+![](report_screens_adam/image-82.png)
+![](report_screens_adam/image-83.png)
