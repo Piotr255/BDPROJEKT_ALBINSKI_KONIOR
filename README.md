@@ -20,28 +20,49 @@
     - [EmployeeRouter](#EmployeeRouter)
     - [UserRouter](#UserRouter)
 * [Schemat bazy danych](#schema)
+    - [adminvars](#adminvars)
+    - [orders](#orders)
+    - [clients](#clients)
+    - [pizzas](#pizzas)
+    - [ingredients](#ingredients)
+    - [workers](#workers)
+    - [users](#users)
+    - [gradeSchema](#gradeSchema)
+    - [addressSchema](#addressSchema)
 
 
 
-Proste operacje CRUD
-* [registerClient](#registerClient) 
+
+## Proste operacje CRUD
 * [loginUser](#loginUser)
+* [changePassword](#changePassword)
+* [currentUser](#currentUser)
+* [deleteUser](#deleteUser)
+* [changeAddress](#changeAddress)
+* [addIngredient](#addIngredient)
+* [addPizza](#addPizza)
+* [addDiscount](#addDiscount)
+
+
+## Operacje o charakterze transakcyjnym
+* [registerClient](#registerClient) 
+* [changeOrderStatus](#changeOrderStatus)
+* [registerWorker](#registerWorker)
+* [makeOrder](#makeOrder)
+* [updateIngredientStatus](#updateIngredientStatus)
+* [getAvailablePizzas](#getAvailablePizzas)
+
+## Zapytania raportujące 
+* [getCurrentOrders](#getCurrentOrders) (dla pracownika)
+* [getAvailablePizzas](#getAvailablePizzas)
 
 
 
-### Wstępne informacje:
+### Wstępne informacje: <a id="szkielet-projekt"> </a>
 - Korzystamy z frameworka Express oraz z mongoose
 - Korzystamy z tokenów JWT do zablokowania nieautoryzowanego dostępu do zasobów naszej bazy.
 
-### Statusy zamówienia:
-- 0 - zamówienie wprowadzone do bazy, przypisany pracownik
-- 1 - zamówienie przyjęte przez przypisanego pracownika
-- -1 odrzucono zamówienie
-- 2 Pizza w przygotowaniu, oczekiwanie na dostawcę, jeśli wybrano zamówienie z dostawą, w przeciwnym razie oczekiwanie na odbiór przez klienta
-- 3.1 pizza odebrana przez dostawcę
-- 3.2 pizza odebrana przez klienta
-- 4 pizza dostarczona
-- -4 problemy przy dostawie...
+
 
 Oto nasz główny plik, który uruchamiany:
 app.js <a id="app.js"></a>
@@ -226,8 +247,19 @@ module.exports = validateToken;
 
 
 ### Schemat bazy <a id="schema"></a>
+adminvars <a id="adminvars"> </a>
+```js
+const mongoose = require('mongoose');
+const AdminVarsSchema = new mongoose.Schema({
+    delivery_price: {
+        type: Number,
+        required: true
+    }
+});
 
-orders:
+module.exports = mongoose.model('AdminVars', AdminVarsSchema);
+```
+orders <a id="orders"> </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = require('./Address');
@@ -255,11 +287,11 @@ const orderSchema = new mongoose.Schema({
                 ref: 'Pizzas',
                 required: true
             },
-            current_price: { // cena pizzy może się zmieniać, więc tu zapisujemy cenę każdej zamówionej pizzy w momencie składania zamówienia
+            current_price: {
                 type: Number,
                 required: true
             },
-            count: { 
+            count: {
                 type: Number,
                 required: true
             },
@@ -296,8 +328,7 @@ const orderSchema = new mongoose.Schema({
         type: Boolean,
         required: true
     },
-    total_price: { // można by teoretycznie obliczać to zawsze na podstawie pola pizzas, 
-    //ale dodajemy tego typu redundantne pola, aby uprościć zapytania, z których korzysta klient, np. wyświetl historię zamówień
+    total_price: {
         with_discount: {
             type: Number,
             required: true
@@ -306,21 +337,23 @@ const orderSchema = new mongoose.Schema({
             type: Number,
             required: true
         },
-        delivery_price: { // wliczone w cenę with_discount i without_discount
+        delivery_price: {
             type: Number,
             required: true
         }
     },
-    discount_id: { // można użyć tylko jednej zniżki na zamówienie. klient przy składaniu zamówienia decyduje, z której zniżki chce skorzystać
+    discount_id: {
         type: mongoose.Schema.Types.ObjectId,
         required: false
     }
 }, {timestamps: true});
 
 module.exports = mongoose.model('Orders', orderSchema);
+
+
 ```
 
-clients:
+clients <a id="clients"> </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = require('./Address');
@@ -342,11 +375,11 @@ const clientSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    discount_saved: { // ile klient zaoszczędził na zniżkach - kolejne teoretycznie redundantne pole, ale jego obliczenie byłoby dosyć skomplikowane i wydłużało by czas wykonywania zapytań przeznaczonych dla klienta.
+    discount_saved: {
         type: Number,
         default: 0
     },
-    grades: { // oceny pizz przez klienta, nie zamówień tylko pizz
+    grades: {
         type: [{ pizza_id: {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: 'Pizzas',
@@ -366,13 +399,21 @@ const clientSchema = new mongoose.Schema({
     orders_history: {
         type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
         default: []
+    },
+    current_orders: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+        default: []
+    },
+    orders_history: {
+        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
+        default: []
     }
 });
 
 module.exports = mongoose.model('Clients', clientSchema);
 ```
 
-pizzas:
+pizzas  <a id="pizzas"> </a>
 ```js
 const mongoose = require("mongoose");
 const pizzaSchema = new mongoose.Schema({
@@ -395,16 +436,16 @@ const pizzaSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    available: { // pole aktualizowane podczas aktualizacji pola dostępności składnika w poniższej kolekcji ingredients
+    available: {
         type: Boolean,
         required: true
     },
     grades: {
-        points_sum: { // suma ocen pizz
+        points_sum: {
             type: Number,
             default: 0
         },
-        grade_count: { // liczba ocen pizz
+        grade_count: {
             type: Number,
             default: 0
         }
@@ -414,7 +455,7 @@ const pizzaSchema = new mongoose.Schema({
 module.exports = mongoose.model("Pizzas", pizzaSchema);
 ```
 
-ingredients:
+ingredients <a id="ingredients"> </a>
 ```js
 const mongoose = require('mongoose');
 const ingredientSchema = new mongoose.Schema({
@@ -439,7 +480,7 @@ const ingredientSchema = new mongoose.Schema({
 module.exports = mongoose.model('Ingredients', ingredientSchema);
 ```
 
-workers:
+workers <a id="workers"> </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = require('./Address');
@@ -448,7 +489,7 @@ const workerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    worker_type: { // employee(pracownik w kuchni) lub deliverer(dostawca)
+    worker_type: {
         type: String,
         required: true,
         enum: ["employee", "deliverer"]
@@ -465,7 +506,7 @@ const workerSchema = new mongoose.Schema({
         type: addressSchema,
         required: true
     },
-    status: { // active lub inactive
+    status: {
         type: String,
         required: true,
         enum: ["active", "inactive"]
@@ -487,7 +528,8 @@ workerSchema.index({orders_history: 1});
 module.exports = mongoose.model('Workers', workerSchema);
 ```
 
-users: (połączone przez _id z clients i workers, w users istnieje też jedno konto admina)
+users <a id="users">  </a>
+(połączone przez _id z clients i workers, w users istnieje też jedno konto admina)
 ```js
 const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
@@ -509,7 +551,7 @@ const userSchema = new mongoose.Schema({
 module.exports = mongoose.model('Users', userSchema);
 ```
 
-gradeSchema:
+gradeSchema: <a id="gradeSchema">  </a>
 ```js
 const mongoose = require('mongoose');
 const gradeSchema = new mongoose.Schema({
@@ -535,10 +577,11 @@ const gradeSchema = new mongoose.Schema({
 module.exports = gradeSchema;
 ```
 
-addressSchema:
+addressSchema: <a id="addressSchema">  </a>
 ```js
 const mongoose = require('mongoose');
 const addressSchema = new mongoose.Schema({
+    _id: false,
     city: {
         type: String,
         required: true
@@ -579,30 +622,33 @@ const registerClient = asyncHandler(async (req, res, next) => {
     const session = await mongoose.startSession();
     await session.startTransaction();
     try {
-        const { email, name, password, role, phone, city, street, zip_code } = req.body;
+        const { email, name, password, role, phone, city, street, zip_code, district} = req.body;
 
-        if (!name || !email || !password || !role || !phone || !city || !street || !zip_code) {
+        if (!name || !email || !password || !role || !phone || !city || !street || !zip_code || !district) {
             throw new Error("Please fill in all fields");
         }
 
-        const userAvailable = await User.findOne({ email }); // sprawdzamy czy istnieje użytkownik o podanym emailu
+        const userAvailable = await User.findOne({ email }, null, { session }); // sprawdzamy czy istnieje użytkownik o podanym emailu
         if (userAvailable) {
             throw new Error("User already exists");
         }
         const hashedPassword = await bcrypt.hash(password, 10);
+
         const user = await User.create([{ //tworzymy użytkownika
             email,
             password: hashedPassword,
             role
         }], { session });
+
         if (user && role === "client") {
             const user_id = user[0]._id;
             const client = await Client.create([{ //tworzymy klienta
                 _id: user_id,
                 name,
                 phone,
-                address: { city, street, zip_code }
+                address: { city, street, zip_code, district}
             }], { session });
+
             if (client) {
                 await session.commitTransaction(); //użytkownik i klient poprawnie stworzeni, zatwierdzamy transakcję
                 res.status(201).json({
@@ -612,7 +658,8 @@ const registerClient = asyncHandler(async (req, res, next) => {
                     phone: client[0].phone,
                     city: client[0].address.city,
                     street: client[0].address.street,
-                    zip_code: client[0].address.zip_code
+                    zip_code: client[0].address.zip_code,
+                    district: client[0].address.district
                 });
             }
         } else {
@@ -628,6 +675,7 @@ const registerClient = asyncHandler(async (req, res, next) => {
     }
 });
 
+
 ```
 
 ![](report_screens/image.png)
@@ -636,7 +684,7 @@ clients
 users
 ![](report_screens/image-2.png)
 
-### loginUser 
+### loginUser   <a id="loginUser"></a>
 Logujemy użytkownika. Tworzymy klucz JWT potrzebny do dostępu dla innych endpointów.
 ```js
 const loginUser = asyncHandler(async (req, res) => {
@@ -648,7 +696,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email });
     if (user && (await bcrypt.compare(password, user.password))) {
         const accessToken = jwt.sign({user: {email: user.email, id: user.id, role: user.role}},
-            process.env.ACCESS_TOKEN_SECRET, {expiresIn: "15m"});
+            process.env.ACCESS_TOKEN_SECRET, {expiresIn: "7d"});
         res.status(200).json({accessToken});
     }
     else {
@@ -657,13 +705,14 @@ const loginUser = asyncHandler(async (req, res) => {
 
     };
 });
+
 ```
 ![](report_screens/image-3.png)
 
-### deleteUser (delete)
+
+### deleteUser (delete)  <a id="deleteUser"></a>
 Podobnie jak tworzyliśmy użytkownika, tutaj też potrzebujemy zastosować transakcję.
 ```js
-
 const deleteUser = asyncHandler(async (req, res) => {
     const session = await mongoose.startSession();
     await session.startTransaction();
@@ -673,12 +722,16 @@ const deleteUser = asyncHandler(async (req, res) => {
             res.status(400);
             throw new Error("Please fill in all fields");
         }
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email }, { session });
         if (user && (await bcrypt.compare(password, user.password))) {
             await User.deleteOne({email});
-            await Client.deleteOne({_id: user.id});
+            if (user.role === "client") {
+                await Client.deleteOne({_id: user.id});
+            } else if (user.role === "worker") {
+                await Worker.deleteOne({_id: user.id});
+            }
             await session.commitTransaction();
-            res.status(200).json({message: "User deleted"});
+            res.status(200).json({email, message: "User deleted"});
         }
         else {
             res.status(401);
@@ -707,9 +760,8 @@ Po wykonaniu tej operacji ten użytkownik znika z obu kolekcji
 
 
 
-### currentUser (read)
+### currentUser (read) <a id="currentUser"></a>
 ```js
-
 const currentUser = asyncHandler(async (req, res) => {
     const {email, id, role} = req.user;
     if(role === "admin"){
@@ -736,7 +788,7 @@ const currentUser = asyncHandler(async (req, res) => {
 ![](report_screens/image-6.png)
 
 
-### changePassword (update)
+### changePassword (update)  <a id="changePassword"></a>
 ```js
 const changePassword = asyncHandler(async (req, res) => {
     const {email, id, role} = req.user;
@@ -765,245 +817,54 @@ const changePassword = asyncHandler(async (req, res) => {
 po zmianie
 ![](report_screens/image-10.png)
 
+
+### changeAddress <a id="changeAddress"> </a>
+```js
+const changeAddress = asyncHandler(async (req, res) => {
+    const {email, id, role} = req.user;
+    const {new_address} = req.body;
+    if(!new_address) {
+        res.status(400);
+        throw new Error("Please fill in all fields");
+    }
+    if(role === "client"){
+        await Client.updateOne({_id: id}, {address: new_address});
+        res.status(200).json({email, id, role, new_address});
+    }
+    else if(role === "worker"){
+        await Worker.updateOne({_id: id}, {address: new_address});
+        res.status(200).json({email, id, role, new_address});
+    }
+    else {
+        res.status(401);
+        throw new Error("Invalid role");
+    }
+
+});
+
+
+```
+![](report_screens_2/image-1.png)
+![](report_screens_2/image-2.png)
+![](report_screens_2/image-3.png)
 ### Operacje o charakterze transakcyjnym
 
 
-registerWorker - dodajemy dokumenty do dwóch różnych kolekcji
+Najbardziej znacząca:
+### changeOrderStatus <a id="changeOrderStatus"> </a>
+
+### Statusy zamówienia:
+- 0 - zamówienie wprowadzone do bazy, przypisany pracownik
+- 1 - zamówienie przyjęte przez przypisanego pracownika
+- -1 odrzucono zamówienie
+- 2 Pizza w przygotowaniu, oczekiwanie na dostawcę, jeśli wybrano zamówienie z dostawą, w przeciwnym razie oczekiwanie na odbiór przez klienta
+- 3.1 pizza odebrana przez dostawcę
+- 3.2 pizza odebrana przez klienta
+- 4 pizza dostarczona
+- -4 problemy przy dostawie
+- 
 ```js
-const registerWorker = asyncHandler(async (req, res, next) => {
-  const session = await mongoose.startSession();
-  await session.startTransaction();
-  try {
-    const { email, password, name, salary, phone, address, status, worker_type } = req.body;
-    if (!email || !password || !name || !salary || !phone || !address || !status || !worker_type) {
-      res.status(400);
-      throw new Error("Please fill in all fields");
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create([{
-      email,
-      password: hashedPassword,
-      role: "worker"
-    }], {session});
-    await Worker.create([{
-      name,
-      worker_type,
-      salary,
-      phone,
-      address,
-      status
-    }], {session});
-    res.status(200).json({
-      message: 'Worker registered',
-      name,
-      email,
-      salary,
-      phone,
-      address,
-      status,
-      worker_type
-    });
-    await session.commitTransaction();
-  } catch(err) {
-    await session.abortTransaction();
-    next(err);
-  } finally {
-    await session.endSession();
-  }
-});
-```
 
-![](report_screens_adam/image-2.png)
-![](report_screens_adam/image-6.png)
-Gdy spróbuję ponownie:
-![](report_screens_adam/image-4.png)
-nie wstawił się
-![](report_screens_adam/image-5.png)
-
-
-makeOrder - dodajemy zamówienie do orders, a do pól current_orders w workers i current_orders w clients dodajemy orderId
-- Można użyć tylko jednej zniżki na zamówienie, klient wybiera z której zniżki korzysta
-- Przekazujemy order_date dla większej elastyczności tworzenia danych testowych
-- Zakładamy, że o każdej porze dnia jest dostępny jakiś dostawca. Nie przyporządkowujemy go przy składaniu zamówienia, lecz gdy pizza jest w przygotowaniu, przy zmianie statusu zamówienia. Gdy żaden pracownik kuchni nie jest dostępny, nie można złożyć zamówienia. Dostawcy, gdy ustawiają swój status na inactive, oznacza to, że nie przyjmują już więcej zamówień.
-```js
-const makeOrder = asyncHandler(async (req, res, next) => {
-  const session = await mongoose.startSession();
-  await session.startTransaction();
-  try {
-    const {email, id, role} = req.user;
-    let { basket, order_date, order_notes, to_deliver, discount_id } = req.body; // basket: [{pizza_id: ObjectId, count: Number}, {pizza_id: ObjectId, count: Number}, ...]
-
-    if (discount_id) {
-      const the_discount = await Discount.findOne({_id: new ObjectId(discount_id)}, null, {session});
-
-      if(!the_discount) {
-        res.status(404);
-        throw new Error("Discount not found");
-      }
-      const available = isDateBetween(new Date(order_date), the_discount.start_date, the_discount.end_date);
-      if (!available){
-        throw new Error("Discount not available");
-      }
-      for (let basketPos of basket) {
-        if (the_discount.pizza_ids.includes(basketPos.pizza_id)) {
-          basketPos.discount = the_discount.value;
-        }
-        else {
-          basketPos.discount = 0;
-        }
-      }
-
-    } else {
-      for (let basketPos of basket) {
-        basketPos.discount = 0;
-      }
-    }
-    const pizzas = await Pizza.find({_id : {$in: basket.map(item => item.pizza_id)}}, null, {session});
-    for (let basketPos of basket) {
-      let pizza = pizzas.find((item) => item._id.equals(basketPos.pizza_id));
-      basketPos.current_price = pizza.price;
-    }
-    const vars = await AdminVars.findOne(null, null, {session});
-    const {with_discount, without_discount} = calculateTotalPrice(basket, to_deliver, vars.delivery_price);
-    if (basket.length === 0) {
-      res.status(400);
-      throw new Error("We do not accept empty orders");
-    }
-    const employee = await findEmployee(session.id);
-    await checkPizzasAvailability(basket, res, session.id);
-    const clientData = await Client.findOne({_id: id},null, {session});
-    let order_;
-    if (discount_id) {
-      order_ = await Order.create([
-        {
-          client_id: id,
-          employee_id: employee._id,
-          pizzas: basket,
-          client_address: clientData.address,
-          order_notes,
-          order_date,
-          status: '0',
-          to_deliver,
-          total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
-          discount_id
-        }
-      ], { session });
-    } else {
-      order_ = await Order.create([
-        {
-          client_id: id,
-          employee_id: employee._id,
-          pizzas: basket,
-          client_address: clientData.address,
-          order_notes,
-          order_date,
-          status: '0',
-          total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
-          to_deliver,
-          discount_id: null
-        }
-      ], { session });
-    }
-
-    const order = order_[0];
-    await Worker.updateOne({_id: employee._id}, {$push: {current_orders: order.id}}, {session});
-    await Client.updateOne({_id: id}, {$push: {current_orders: order.id}}, {session});
-    await session.commitTransaction();
-    res.status(200).json({
-      order_id: order._id,
-      message: "Order placed.",
-      client_id: id,
-      employee_id: employee._id,
-      pizzas: basket,
-      client_address: clientData.address,
-      order_notes,
-      order_date,
-      total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
-      discount_id
-    });
-  } catch (err) {
-    await session.abortTransaction();
-    next(err);
-  } finally {
-    await session.endSession();
-  }
-});
-```
-
-(Pod zrzutami ekranów są wklejone funkcje pomocnicze - findEmployee, checkPizzasAvailability itd.)
-
-![](report_screens_adam/image-12.png)
-![](report_screens_adam/image-13.png)
-![](report_screens_adam/image-14.png)
-![](report_screens_adam/image-15.png)
-
-Teraz przetestujmy obsługę błędów:
-![](report_screens_adam/image-16.png)
-![](report_screens_adam/image-17.png)
-Dodajemy niedostępną pizzę, spróbujemy ją dodać do zamówienia:
-![](report_screens_adam/image-18.png)
-![](report_screens_adam/image-19.png)
-Zmieńmy wszystkim pracownikom status na inactive:
-![](report_screens_adam/image-20.png)
-I spróbujmy coś zamówić:
-![](report_screens_adam/image-21.png)
-
-
-```js
-function isDateBetween(dateToCheck, startDate, endDate) {
-  return dateToCheck >= startDate && dateToCheck <= endDate;
-}
-
-function calculateTotalPrice(basket, to_deliver, delivery_price) {
-  let priceWithDiscount = 0;
-  let priceWithoutDiscount = 0;
-  for (let basketPos of basket) {
-    priceWithDiscount += basketPos.current_price * basketPos.count * (1-basketPos.discount);
-    priceWithoutDiscount += basketPos.current_price * basketPos.count;
-  }
-  priceWithDiscount = parseFloat(priceWithDiscount.toFixed(2));
-  return to_deliver ?
-      { with_discount: priceWithDiscount + delivery_price, without_discount: priceWithoutDiscount + delivery_price } :
-      { with_discount: priceWithDiscount, without_discount: priceWithoutDiscount };
-
-}
-
-async function findEmployee(sessionId) {
-
-
-  const session = await mongoose.startSession({_id: sessionId});
-
-  const employees = await Worker.find({worker_type: "employee", status: "active"}, null, { session });
-
-  if (employees.length === 0) {
-    throw new Error("There are no pizzaiolos available at the moment.");
-  }
-  const bestEmployee = employees.reduce((best, current) => {
-    if (current.current_orders.length < best.current_orders.length) {
-      return current;
-    } else {
-      return best;
-    }
-  }, employees[0]);
-  return bestEmployee;
-}
-
-async function checkPizzasAvailability(basket, res, sessionId) {
-  const session = await mongoose.startSession({_id: sessionId});
-  const pizzaIds = basket.map(item => item.pizza_id);
-  const pizzas = await Pizza.find({ _id: { $in: pizzaIds } },null,  {session});
-  const unavailablePizzas = pizzas.filter(pizza => !pizza.available);
-
-  if (unavailablePizzas.length > 0) {
-    const unavailablePizzaNames = unavailablePizzas.map(pizza => pizza.name).join(', ');
-    res.status(400);
-    throw new Error(`Pizzas ${unavailablePizzaNames} aren't available. We can't make an order.`);
-  }
-}
-```
-
-changeOrdersStatus - zmiana statusu zamówienia
-```js
 const changeOrderStatus = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
@@ -1112,7 +973,16 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
     await session.endSession();
   }
 });
+
+
+
 ```
+![](report_screens_2/image-4.png)
+![](report_screens_2/image-6.png)
+![](report_screens_2/image-5.png)
+
+
+
 
 Najpierw może złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
 ![](report_screens_adam/image-22.png)
@@ -1121,16 +991,6 @@ Dodało się również pole w current_orders w clients:
 (Jako 6. pole)
 i w workers:
 ![](report_screens_adam/image-24.png)
-
-Oto nasze dostępne statusy zamówienia:
-- 0 - zamówienie wprowadzone do bazy, przypisany pracownik
-- 1 - zamówienie przyjęte przez przypisanego pracownika
-- -1 odrzucono zamówienie
-- 2 Pizza w przygotowaniu, oczekiwanie na dostawcę, jeśli wybrano zamówienie z dostawą, w przeciwnym razie oczekiwanie na odbiór przez klienta
-- 3.1 pizza odebrana przez dostawcę
-- 3.2 pizza odebrana przez klienta
-- 4 pizza dostarczona
-- -4 problemy przy dostawie...
 
 Przetestujmy przy okazji obsługę błędów, czyli spróbujmy np. zmienić status od razu na 4:
 ![](report_screens_adam/image-25.png)
@@ -1173,6 +1033,249 @@ I w końcu na 4 - pizza dostarczona:
 ![](report_screens_adam/image-43.png)
 ![](report_screens_adam/image-44.png)
 
+Widać dodanego dostawcę
+### registerWorker <a id="registerWorker"> </a>
+dodajemy dokumenty do dwóch różnych kolekcji
+```js
+const registerWorker = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const { email, password, name, salary, phone, address, status, worker_type } = req.body;
+    if (!email || !password || !name || !salary || !phone || !address || !status || !worker_type) {
+      res.status(400);
+      throw new Error("Please fill in all fields");
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create([{
+      email,
+      password: hashedPassword,
+      role: "worker"
+    }], {session});
+    await Worker.create([{
+      _id: user[0]._id,
+      name,
+      worker_type,
+      salary,
+      phone,
+      address,
+      status
+    }], {session});
+    res.status(200).json({
+      message: 'Worker registered',
+      name,
+      email,
+      salary,
+      phone,
+      address,
+      status,
+      worker_type
+    });
+    await session.commitTransaction();
+  } catch(err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
+});
+```
+
+![](report_screens_adam/image-2.png)
+![](report_screens_adam/image-6.png)
+Gdy spróbuję ponownie:
+![](report_screens_adam/image-4.png)
+nie wstawił się
+![](report_screens_adam/image-5.png)
+
+
+
+makeOrder <a id="makeOrder"> </a>
+- dodajemy zamówienie do orders, a do pól current_orders w workers i current_orders w clients dodajemy orderId
+- Można użyć tylko jednej zniżki na zamówienie, klient wybiera z której zniżki korzysta
+- Przekazujemy order_date dla większej elastyczności tworzenia danych testowych
+- Zakładamy, że o każdej porze dnia jest dostępny jakiś dostawca. Nie przyporządkowujemy go przy składaniu zamówienia, lecz gdy pizza jest w przygotowaniu, przy zmianie statusu zamówienia. Gdy żaden pracownik kuchni nie jest dostępny, nie można złożyć zamówienia. Dostawcy, gdy ustawiają swój status na inactive, oznacza to, że nie przyjmują już więcej zamówień.
+
+```js
+
+async function checkPizzasAvailability(basket, res, sessionId) {
+  const session = await mongoose.startSession({_id: sessionId});
+  const pizzaIds = basket.map(item => item.id);
+  const pizzas = await Pizza.find({ _id: { $in: pizzaIds } },null,  {session});
+  const unavailablePizzas = pizzas.filter(pizza => !pizza.available);
+
+  if (unavailablePizzas.length > 0) {
+    const unavailablePizzaNames = unavailablePizzas.map(pizza => pizza.name).join(', ');
+    res.status(400);
+    throw new Error(`Pizzas ${unavailablePizzaNames} aren't available. We can't make an order.`);
+  }
+}
+
+async function findEmployee(sessionId) {
+
+
+  const session = await mongoose.startSession({_id: sessionId});
+
+  const employees = await Worker.find({worker_type: "employee", status: "active"}, null, { session });
+
+  if (employees.length === 0) {
+    throw new Error("There are no pizzaiolos available at the moment.");
+  }
+  const bestEmployee = employees.reduce((best, current) => {
+    if (current.current_orders.length < best.current_orders.length) {
+      return current;
+    } else {
+      return best;
+    }
+  }, employees[0]);
+  return bestEmployee;
+}
+
+function calculateTotalPrice(basket, to_deliver, delivery_price) {
+  let priceWithDiscount = 0;
+  let priceWithoutDiscount = 0;
+  for (let basketPos of basket) {
+    priceWithDiscount += basketPos.current_price * basketPos.count * (1-basketPos.discount);
+    priceWithoutDiscount += basketPos.current_price * basketPos.count;
+  }
+  priceWithDiscount = parseFloat(priceWithDiscount.toFixed(2));
+  return to_deliver ?
+      { with_discount: priceWithDiscount + delivery_price, without_discount: priceWithoutDiscount + delivery_price } :
+      { with_discount: priceWithDiscount, without_discount: priceWithoutDiscount };
+
+}
+
+
+function isDateBetween(dateToCheck, startDate, endDate) {
+  return dateToCheck >= startDate && dateToCheck <= endDate;
+}
+
+const makeOrder = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  await session.startTransaction();
+  try {
+    const {email, id, role} = req.user;
+    let { basket, order_date, order_notes, to_deliver, discount_id } = req.body; // basket: [{pizza_id: ObjectId, count: Number}, {pizza_id: ObjectId, count: Number}, ...]
+
+    if (discount_id) {
+      const the_discount = await Discount.findOne({_id: new ObjectId(discount_id)}, null, {session});
+
+      if(!the_discount) {
+        res.status(404);
+        throw new Error("Discount not found");
+      }
+      const available = isDateBetween(new Date(order_date), the_discount.start_date, the_discount.end_date);
+      if (!available){
+        throw new Error("Discount not available");
+      }
+      for (let basketPos of basket) {
+        if (the_discount.pizza_ids.includes(basketPos.pizza_id)) {
+          basketPos.discount = the_discount.value;
+        }
+        else {
+          basketPos.discount = 0;
+        }
+      }
+
+    } else {
+      for (let basketPos of basket) {
+        basketPos.discount = 0;
+      }
+    }
+    const pizzas = await Pizza.find({_id : {$in: basket.map(item => item.pizza_id)}}, null, {session});
+    for (let basketPos of basket) {
+      let pizza = pizzas.find((item) => item._id.equals(basketPos.pizza_id));
+      basketPos.current_price = pizza.price;
+    }
+    const vars = await AdminVars.findOne(null, null, {session});
+    const {with_discount, without_discount} = calculateTotalPrice(basket, to_deliver, vars.delivery_price);
+    if (basket.length === 0) {
+      res.status(400);
+      throw new Error("We do not accept empty orders");
+    }
+    const employee = await findEmployee(session.id);
+    await checkPizzasAvailability(basket, res, session.id);
+    const clientData = await Client.findOne({_id: id},null, {session});
+    let order_;
+    if (discount_id) {
+      order_ = await Order.create([
+        {
+          client_id: id,
+          employee_id: employee._id,
+          pizzas: basket,
+          client_address: clientData.address,
+          order_notes,
+          order_date,
+          status: '0',
+          to_deliver,
+          total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
+          discount_id
+        }
+      ], { session });
+    } else {
+      order_ = await Order.create([
+        {
+          client_id: id,
+          employee_id: employee._id,
+          pizzas: basket,
+          client_address: clientData.address,
+          order_notes,
+          order_date,
+          status: '0',
+          total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
+          to_deliver,
+          discount_id: null
+        }
+      ], { session });
+    }
+
+    const order = order_[0];
+    await Worker.updateOne({_id: employee._id}, {$push: {current_orders: order.id}}, {session});
+    await Client.updateOne({_id: id}, {$push: {current_orders: order.id}}, {session});
+    await session.commitTransaction();
+    res.status(200).json({
+      order_id: order._id,
+      message: "Order placed.",
+      client_id: id,
+      employee_id: employee._id,
+      pizzas: basket,
+      client_address: clientData.address,
+      order_notes,
+      order_date,
+      total_price: {with_discount, without_discount, delivery_price: to_deliver ? vars.delivery_price : 0},
+      discount_id
+    });
+  } catch (err) {
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    await session.endSession();
+  }
+});
+```
+
+
+![](report_screens_adam/image-12.png)
+![](report_screens_adam/image-13.png)
+![](report_screens_adam/image-14.png)
+![](report_screens_adam/image-15.png)
+
+Teraz przetestujmy obsługę błędów:
+![](report_screens_adam/image-16.png)
+![](report_screens_adam/image-17.png)
+Dodajemy niedostępną pizzę, spróbujemy ją dodać do zamówienia:
+![](report_screens_adam/image-18.png)
+![](report_screens_adam/image-19.png)
+Zmieńmy wszystkim pracownikom status na inactive:
+![](report_screens_adam/image-20.png)
+I spróbujmy coś zamówić:
+![](report_screens_adam/image-21.png)
+
+
+
+
+
+
 ```js
 const deleteUser = asyncHandler(async (req, res) => {
     const session = await mongoose.startSession();
@@ -1205,34 +1308,30 @@ const deleteUser = asyncHandler(async (req, res) => {
 });
 ```
 
-updateIngredientStatus - nie tylko zmieniamy status obecności składnika na stanie, ale także ustawiamy odpowiednio pole available w pizzas, jeśli obecność lub nieobecność jakiegoś składnika powoduje, że już pizza jest dostępna lub niedostępna. 
+
+### updateIngredientStatus <a id="updateIngredientStatus"> </a>
+nie tylko zmieniamy status obecności składnika na stanie, ale także ustawiamy odpowiednio pole available w pizzas, jeśli obecność lub nieobecność jakiegoś składnika powoduje, że już pizza jest dostępna lub niedostępna. 
 
 ```js
 const updateIngredientStatus = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
-
   try {
     let { id, new_status } = req.body;
     id = new ObjectId(id);
-
     const the_ingredient = await Ingredient.findOne({_id: id});
     if (!the_ingredient) {
       res.status(400);
       throw new Error("Ingredient doesn't exist");
     }
-
-    // aktualizujemy składnik
     await Ingredient.updateOne({_id: id}, {available: new_status}, { session });
     const pizzasWithIngredient = await Pizza.aggregate([
       { $match: { ingredients: id } },
     ], { session });
 
-    // szukamy pizz, które zawierają ten składnik i aktualizujemy ich pole "available"
     for (const pizza of pizzasWithIngredient) {
       let allOtherIngredientsAvailable = true;
-
-      if (new_status){ // tylko jeśli chcemy zmienić dostępność na true, jeśli zmieniamy na false, pomijamy
+      if (new_status){
         const otherIngredients = pizza.ingredients.filter(ingredient_id => !ingredient_id.equals(id));
 
         allOtherIngredientsAvailable = await Ingredient.countDocuments(
@@ -1240,8 +1339,6 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
             { session }
         ) === otherIngredients.length;
       }
-      // jeśli new_status na false, po prostu wszystkim pizzom ustawiamy available na false. 
-      // w przeciwnym wypadku sprawdzamy to co wyżej, czyli czy wszystkie składniki mają available na true
       if (allOtherIngredientsAvailable) {
         await Pizza.updateOne(
             { _id: pizza._id },
@@ -1259,6 +1356,7 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
     await session.endSession();
   }
 });
+
 ```
 
 ![](report_screens/image-50.png)
@@ -1269,6 +1367,7 @@ const updateIngredientStatus = asyncHandler(async (req, res, next) => {
 ![](report_screens/image-54.png)
 ![](report_screens/image-55.png)
 ![](report_screens/image-56.png)
+
 
 
 ```js
@@ -1696,9 +1795,132 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
 ![](report_screens_adam/image-60.png)
 (Ocen brak - wcześniej ocenialiśmy zamówienia, ocenianie pizz jest realizowane osobno)
 
-### Pozostałe operacje
 
-### addIngredient (dodanie nowego składnika pizzy do bazy)
+### getCurrentOrders (dla pracownika) <a id="getCurrentOrders"> </a>
+```js
+const getCurrentOrders = asyncHandler(async (req, res, next) => {
+  try {
+    const objId = new ObjectId(req.user.id);
+    const orders = await Worker.aggregate([
+      {
+        $match: { _id: objId }
+      },
+      {
+        $lookup: {
+          from: "orders",
+          localField: "current_orders",
+          foreignField: "_id",
+          as: "current_orders"
+        }
+      },
+      {
+        $unwind: "$current_orders"
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "current_orders.client_id",
+          foreignField: "_id",
+          as: "current_orders.client"
+        }
+      },
+      {
+        $unwind: "$current_orders.client"
+      },
+      {
+        $lookup: {
+          from: "workers",
+          localField: "current_orders.deliverer_id",
+          foreignField: "_id",
+          as: "current_orders.deliverer"
+        }
+      },
+      {
+        $unwind: {
+          path: "$current_orders.deliverer",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $group: {
+          _id: "$current_orders._id",
+          employee: { $first: "$name" },
+          client: { $first: "$current_orders.client.name" },
+          deliverer: { $first: "$current_orders.deliverer.name" },
+          order_date: { $first: "$current_orders.order_date" },
+          pizzas: { $first: "$current_orders.pizzas" },
+          total_price: { $first: "$current_orders.total_price" },
+          discount_id: { $first: "$current_orders.discount_id" },
+          grade: { $first: "$current_orders.grade" },
+          status: { $first: "$current_orders.status" },
+          toDeliver: { $first: "$current_orders.to_deliver" }
+        }
+      },
+      {
+        $lookup: {
+          from: "pizzas",
+          localField: "pizzas.pizza_id",
+          foreignField: "_id",
+          as: "pizza_details"
+        }
+      },
+      {
+        $lookup: {
+          from: "discounts",
+          localField: "discount_id",
+          foreignField: "_id",
+          as: "discount"
+        }
+      },
+      {
+        $unwind: {
+          path: "$discount",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          employee: 1,
+          client: 1,
+          deliverer: 1,
+          order_date: 1,
+          status: 1,
+          toDeliver: 1,
+          pizzas: {
+            $map: {
+              input: "$pizzas",
+              as: "pizzaItem",
+              in: {
+                name: { $arrayElemAt: ["$pizza_details.name", { $indexOfArray: ["$pizza_details._id", "$$pizzaItem.pizza_id"] }] },
+                price: { $arrayElemAt: ["$pizza_details.price", { $indexOfArray: ["$pizza_details._id", "$$pizzaItem.pizza_id"] }] },
+                count: "$$pizzaItem.count",
+                discount: "$$pizzaItem.discount"
+              }
+            }
+          },
+          total_price: 1,
+          discount: { $ifNull: ["$discount.name", null] },
+        }
+      }
+    ]);
+
+
+    res.status(200).json(orders);
+
+  } catch(err) {
+    next(err);
+  }
+
+});
+
+```
+![](report_screens_2/image.png)
+
+
+### addIngredient  <a id="addIngredient"> </a>
+
+(dodanie nowego składnika pizzy do bazy)
 
 ```js
 const addIngredient = asyncHandler(async (req, res, next) => {
@@ -1737,8 +1959,7 @@ i cebula się nie dodała drugi raz.
 
 
 
-### addPizza (dodanie nowej pizzy do bazy)
-
+### addPizza (dodanie nowej pizzy do bazy) <a id="addPizza"> </a>
 ```js
 const addPizza = asyncHandler(async (req, res, next) => {
   try {
@@ -1748,7 +1969,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("There is already a pizza with this name");
     }
-    const ingredients_ObjId = ingredients.map((ingredient) => new ObjectId(ingredient))
+    const ingredients_ObjId = ingredients.map((ingredient) => new ObjectId(ingredient));
     const existingPizzaWithIngredients = await Pizza.aggregate([
       {
         $project: {
@@ -1765,7 +1986,7 @@ const addPizza = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("There is already a pizza with this set of ingredients");
     }
-    // sprawdzamy, czy wszystkie składniki, które zostały podane, istnieją w bazie w następujący sposób
+// sprawdzamy, czy wszystkie składniki, które zostały podane, istnieją w bazie w następujący sposób
     // 1) szukamy w bazie wszystkich składników, które zostały podane
     // 2) zliczamy ilość znalezionych w bazie składników
     // 3) sprawdzamy, czy znaleźliśmy tyle składników ile zostało podane(zakładamy, że nie mamy w bazie dwóch składników o tym samym ingredient_nr)
@@ -1821,7 +2042,9 @@ const addPizza = asyncHandler(async (req, res, next) => {
     next(err);
   }
 });
+
 ```
+
 ![](report_screens/image-42.png)
 ![](report_screens/image-43.png)
 
@@ -1831,24 +2054,22 @@ Teraz przetestujmy po kolei obsługę błędów:
 ![](report_screens/image-46.png)
 
 
-### addDiscount (dodanie nowej zniżki do bazy)
+### addDiscount (dodanie nowej zniżki do bazy) <a id="addDiscount"> </a>
 
 ```js
+
 const addDiscount = asyncHandler(async (req, res, next) => {
   try {
     const {name, pizza_ids, value, start_date, end_date} = req.body;
-
-    // walidacja
+    const pizza_ids_ObjId = pizza_ids.map(pizza_id => new ObjectId(pizza_id));
     const existingName = await Discount.findOne({name: name});
     if (existingName) {
       res.status(400);
       throw new Error("Discount name already exists");
     }
-
-    // sprawdzenie, czy pizze, dla których chcemy zastosować zniżkę, istnieją(robione analogicznie jak w funkcji wyżej, addPizza)
     const pizza_idsExist = await Pizza.aggregate([
       {
-        $match: { menu_number: { $in: pizza_ids } }
+        $match: { _id: { $in: pizza_ids_ObjId } }
       },
       {
         $group: {
@@ -1858,7 +2079,7 @@ const addDiscount = asyncHandler(async (req, res, next) => {
       },
       {
         $project: {
-          pizzasExist: { $eq: ["$matchedPizzasCount", pizza_ids.length] }
+          pizzasExist: { $eq: ["$matchedPizzasCount", pizza_ids_ObjId.length] }
         }
       },
       {
@@ -1871,25 +2092,19 @@ const addDiscount = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("At least one of the given pizzas doesn't exist");
     }
-
-    // sprawdzenie poprawności wartości zniżki
     if (value > 1 || value < 0) {
       res.status(400);
       throw new Error("Invalid discount value");
     }
-
-    // sprawdzenie poprawności dat
     const start_date_DATE = new Date(start_date).toISOString();
     const end_date_DATE = new Date(end_date).toISOString();
     if (end_date_DATE < start_date_DATE) {
       res.status(400);
       throw new Error("Invalid dates");
     }
-
-    // dodanie zniżki
     await Discount.create({
       name,
-      pizza_ids,
+      pizza_ids: pizza_ids_ObjId,
       value,
       start_date: start_date_DATE,
       end_date: end_date_DATE
@@ -1897,7 +2112,7 @@ const addDiscount = asyncHandler(async (req, res, next) => {
     res.status(200).json({
       message: "Discount saved",
       name,
-      pizza_ids,
+      pizza_ids: pizza_ids_ObjId,
       value,
       start_date,
       end_date
@@ -1959,6 +2174,14 @@ const rateOrder = asyncHandler(async (req, res, next) => {
       grade_delivery,
       comment
     });
+
+### getAvailablePizzas (pobranie pizz, które są aktualnie dostępne) <a id="getAvailablePizzas"> </a>
+
+```js
+const getAvailablePizzas = asyncHandler(async (req, res, next) => {
+  try {
+    const pizzas = await Pizza.find({available: true}, 'name menu_number ingredients price available');
+    res.status(200).json(pizzas);
   } catch (err) {
     next(err);
   }
