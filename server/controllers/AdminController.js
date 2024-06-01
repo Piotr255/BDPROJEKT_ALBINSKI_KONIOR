@@ -200,12 +200,13 @@ const registerWorker = asyncHandler(async (req, res, next) => {
       throw new Error("Please fill in all fields");
     }
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create([{
+    const user = await User.create([{
       email,
       password: hashedPassword,
       role: "worker"
     }], {session});
     await Worker.create([{
+      _id: user[0]._id,
       name,
       worker_type,
       salary,
