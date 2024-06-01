@@ -813,12 +813,12 @@ const registerWorker = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](image-2.png)
-![](image-6.png)
+![](report_screens_adam/image-2.png)
+![](report_screens_adam/image-6.png)
 Gdy spróbuję ponownie:
-![](image-4.png)
+![](report_screens_adam/image-4.png)
 nie wstawił się
-![](image-5.png)
+![](report_screens_adam/image-5.png)
 
 
 makeOrder - dodajemy zamówienie do orders, a do pól current_orders w workers i current_orders w clients dodajemy orderId
@@ -932,21 +932,21 @@ const makeOrder = asyncHandler(async (req, res, next) => {
 
 (Pod zrzutami ekranów są wklejone funkcje pomocnicze - findEmployee, checkPizzasAvailability itd.)
 
-![](image-12.png)
-![](image-13.png)
-![](image-14.png)
-![](image-15.png)
+![](report_screens_adam/image-12.png)
+![](report_screens_adam/image-13.png)
+![](report_screens_adam/image-14.png)
+![](report_screens_adam/image-15.png)
 
 Teraz przetestujmy obsługę błędów:
-![](image-16.png)
-![](image-17.png)
+![](report_screens_adam/image-16.png)
+![](report_screens_adam/image-17.png)
 Dodajemy niedostępną pizzę, spróbujemy ją dodać do zamówienia:
-![](image-18.png)
-![](image-19.png)
+![](report_screens_adam/image-18.png)
+![](report_screens_adam/image-19.png)
 Zmieńmy wszystkim pracownikom status na inactive:
-![](image-20.png)
+![](report_screens_adam/image-20.png)
 I spróbujmy coś zamówić:
-![](image-21.png)
+![](report_screens_adam/image-21.png)
 
 
 ```js
@@ -1115,12 +1115,12 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
 ```
 
 Najpierw może złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
-![](image-22.png)
+![](report_screens_adam/image-22.png)
 Dodało się również pole w current_orders w clients:
-![](image-23.png)
+![](report_screens_adam/image-23.png)
 (Jako 6. pole)
 i w workers:
-![](image-24.png)
+![](report_screens_adam/image-24.png)
 
 Oto nasze dostępne statusy zamówienia:
 - 0 - zamówienie wprowadzone do bazy, przypisany pracownik
@@ -1133,45 +1133,45 @@ Oto nasze dostępne statusy zamówienia:
 - -4 problemy przy dostawie...
 
 Przetestujmy przy okazji obsługę błędów, czyli spróbujmy np. zmienić status od razu na 4:
-![](image-25.png)
+![](report_screens_adam/image-25.png)
 
 Zmieńmy na razie status na 1(zamówienie przyjęte). To jeszcze nic nie zmienia, tylko wartość statusu:
-![](image-26.png)
-![](image-27.png)
+![](report_screens_adam/image-26.png)
+![](report_screens_adam/image-27.png)
 
 Teraz zmieńmy status na 2. W przypadku zamówienia bez dostawy to też zmienia tylko wartość statusu:
-![](image-28.png)
-![](image-29.png)
+![](report_screens_adam/image-28.png)
+![](report_screens_adam/image-29.png)
 
 I zmieńmy status na 3.2, czyli pizza odebrana przez klienta:
-![](image-30.png)
-![](image-31.png)
+![](report_screens_adam/image-30.png)
+![](report_screens_adam/image-31.png)
 Zamówienie przeniosło się od orders_history klienta oraz zwiększyła się wartość discount_saved, czyli pola mówiącego ile dany klient zaoszczędził na zniżkach:
-![](image-32.png)
+![](report_screens_adam/image-32.png)
 To samo w przypadku pracownika:
-![](image-33.png)
+![](report_screens_adam/image-33.png)
 
 Teraz zróbmy zamówienie z dostawą:
-![](image-34.png)
-![](image-35.png)
+![](report_screens_adam/image-34.png)
+![](report_screens_adam/image-35.png)
 
 Zmieńmy status na 1. To na razie zmienia tylko wartość statusu:
-![](image-36.png)
-![](image-37.png)
+![](report_screens_adam/image-36.png)
+![](report_screens_adam/image-37.png)
 
 Teraz zmieńmy status na 2. Powinien zostać przypisany dostawca:
-![](image-38.png)
-![](image-39.png)
+![](report_screens_adam/image-38.png)
+![](report_screens_adam/image-39.png)
 Status się zaktualizował i na końcu dokumentu dodało się pole deliverer_id.
 
 Zmieńmy status na 3.1 - pizza odebrana przez kuriera:
-![](image-40.png)
+![](report_screens_adam/image-40.png)
 
 I w końcu na 4 - pizza dostarczona:
-![](image-41.png)
-![](image-42.png)
-![](image-43.png)
-![](image-44.png)
+![](report_screens_adam/image-41.png)
+![](report_screens_adam/image-42.png)
+![](report_screens_adam/image-43.png)
+![](report_screens_adam/image-44.png)
 
 ```js
 const deleteUser = asyncHandler(async (req, res) => {
@@ -1310,23 +1310,23 @@ const ratePizza = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](image-61.png)
-![](image-62.png)
-![](image-63.png)
+![](report_screens_adam/image-61.png)
+![](report_screens_adam/image-62.png)
+![](report_screens_adam/image-63.png)
 Zmieńmy ocenę(tego samego klienta, tej samej pizzy) na inną:
-![](image-64.png)
-![](image-65.png)
-![](image-66.png)
+![](report_screens_adam/image-64.png)
+![](report_screens_adam/image-65.png)
+![](report_screens_adam/image-66.png)
 
 Przetestujmy błędy:
 Przetestujmy transakcję. W kolekcji clients mamy constraint na `grades.stars`, aby było w zakresie 1-6. Spróbujmy ustawić ocenę na np. 8. Zobaczmy, czy zaktualizuje się points_sum w pizzy(to zmieniamy jako pierwsze) - nie powinno.
-![](image-67.png)
-![](image-69.png)
+![](report_screens_adam/image-67.png)
+![](report_screens_adam/image-69.png)
 Nie zaktualizowało się. Nie znikła także ocena z kolekcji clients:
-![](image-70.png)
+![](report_screens_adam/image-70.png)
 
 Spróbujmy jeszcze ocenić pizzę, której ten klient nie zamówił:
-![](image-71.png)
+![](report_screens_adam/image-71.png)
 
 ### Operacje o charakterze raportującym
 
@@ -1397,15 +1397,15 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
 ```
 
 Na obecny moment mamy dwa ukończone zamówienia w bazie, oba należą do tego samego pracownika, wystawmy im oceny:
-![](image-49.png)
+![](report_screens_adam/image-49.png)
 (Grade delivery jest na null, bo zamówienie było bez dostawy)
-![](image-50.png)
-![](image-51.png)
-![](image-52.png)
+![](report_screens_adam/image-50.png)
+![](report_screens_adam/image-51.png)
+![](report_screens_adam/image-52.png)
 Dodajmy jeszcze jakieś zamówienia i oceny innemu pracownikowi. Oceńmy zamówienia Jana Kowalskiego.
-![](image-53.png)
-![](image-54.png)
-![](image-55.png)
+![](report_screens_adam/image-53.png)
+![](report_screens_adam/image-54.png)
+![](report_screens_adam/image-55.png)
 
 ```js
 const getOrderHistory = asyncHandler(async (req, res, next) => {
@@ -1646,7 +1646,7 @@ const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
 });
 ```
 Przykładowe wykonanie:
-![](image-72.png)
+![](report_screens_adam/image-72.png)
 
 
 
@@ -1693,7 +1693,7 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
 });
 ```
 
-![](image-60.png)
+![](report_screens_adam/image-60.png)
 (Ocen brak - wcześniej ocenialiśmy zamówienia, ocenianie pizz jest realizowane osobno)
 
 ### Pozostałe operacje
@@ -1966,21 +1966,21 @@ const rateOrder = asyncHandler(async (req, res, next) => {
 ```
 
 Najpierw spróbujmy ocenić jeszcze nie ukończone zamówienie:
-![](image-73.png)
+![](report_screens_adam/image-73.png)
 Teraz zaktualizujmy status tego zamówienia:
-![](image-74.png)
+![](report_screens_adam/image-74.png)
 Ponownie spróbujmy ocenić:
-![](image-75.png)
-![](image-76.png)
+![](report_screens_adam/image-75.png)
+![](report_screens_adam/image-76.png)
 
 Testy błędów:
-![](image-77.png)
-![](image-78.png)
-![](image-79.png)
+![](report_screens_adam/image-77.png)
+![](report_screens_adam/image-78.png)
+![](report_screens_adam/image-79.png)
 Poprawnie się zaktualizowało:
-![](image-80.png)
+![](report_screens_adam/image-80.png)
 Zamówienie, które nie istnieje:
-![](image-81.png)\
+![](report_screens_adam/image-81.png)\
 I spróbujmy się jeszcze zalogować jako inny użytkownik:
-![](image-82.png)
-![](image-83.png)
+![](report_screens_adam/image-82.png)
+![](report_screens_adam/image-83.png)
