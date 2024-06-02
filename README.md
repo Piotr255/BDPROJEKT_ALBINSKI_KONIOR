@@ -457,16 +457,11 @@ const clientSchema = new mongoose.Schema({
     orders_history: {
         type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
         default: []
-    },
-    current_orders: {
-        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
-        default: []
-    },
-    orders_history: {
-        type: [{type: mongoose.Schema.Types.ObjectId, ref: 'Orders'}],
-        default: []
     }
 });
+
+clientSchema.index({current_orders: 1});
+clientSchema.index({orders_history: 1});
 
 module.exports = mongoose.model('Clients', clientSchema);
 ```
@@ -1129,8 +1124,10 @@ const makeOrder = asyncHandler(async (req, res, next) => {
 
 
 ![](report_screens_adam/image-12.png)
+Pojawiło się zamówienie:
 ![](report_screens_adam/image-13.png)
 ![](report_screens_adam/image-14.png)
+Ze zniżką i z dostawą również się pojawiło:
 ![](report_screens_adam/image-15.png)
 
 Teraz przetestujmy obsługę błędów:
@@ -1159,7 +1156,7 @@ I spróbujmy coś zamówić:
 - 3.2 pizza odebrana przez klienta
 - 4 pizza dostarczona
 - -4 problemy przy dostawie
-- 
+  
 ```js
 
 const changeOrderStatus = asyncHandler(async (req, res, next) => {
@@ -1296,9 +1293,9 @@ Teraz zmieńmy status na 2. W przypadku zamówienia bez dostawy to też zmienia 
 I zmieńmy status na 3.2, czyli pizza odebrana przez klienta:
 ![](report_screens_adam/image-30.png)
 ![](report_screens_adam/image-31.png)
-Zamówienie przeniosło się od orders_history klienta oraz zwiększyła się wartość discount_saved, czyli pola mówiącego ile dany klient zaoszczędził na zniżkach:
+Zamówienie przeniosło się do orders_history klienta oraz zwiększyła się wartość discount_saved, czyli pola mówiącego ile dany klient zaoszczędził na zniżkach:
 ![](report_screens_adam/image-32.png)
-To samo w przypadku pracownika:
+To samo w przypadku pracownika(zamówienie przeniosło się do orders_history):
 ![](report_screens_adam/image-33.png)
 
 Teraz zróbmy zamówienie z dostawą:
@@ -1551,6 +1548,9 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
         }
       },
       {
+        $sort: { order_date: -1 }
+      },
+      {
         $limit: limit
       },
       {
@@ -1609,7 +1609,10 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
         }
       },
       {
-        $unwind: "$employee_details"
+        $unwind: {
+          path: "$employee_details",
+          preserveNullAndEmptyArrays: true
+        }
       },
       {
         $lookup: {

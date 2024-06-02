@@ -284,6 +284,9 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
         }
       },
       {
+        $sort: { order_date: -1 }
+      },
+      {
         $limit: limit
       },
       {
