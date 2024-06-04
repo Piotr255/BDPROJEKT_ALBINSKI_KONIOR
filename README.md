@@ -9,12 +9,17 @@
 - Node.js
 
 
-
+## Wstępny opis realizacji zadania.
+Nasza pizzeria ma 4 głównych aktorów: admin, employee, deliverer, customer. Admin zarządza menu oraz ma wgląd do statystyk pizzerii. Employee i Deliverer należą do kolekcji Worker. Oni odpowiedzialni są za realizowanie zamówienia. Customer zamawia pizzę z dowozem lub na wynos. Wszystkie role, żeby korzystać z usług pizzerii muszą posiadać konto (kolekcja user).
 
 # Spis treści
 * [Szkielet projektu](#szkielet-projekt) 
+    - oprócz poniższych plików istnieją również pliki z kontrolerami dla routerów, w sprawozdaniu znajdują się po prostu wydzielone funkcje będące kontrolerami.
     - [app.js](#app.js)
+    - [.env](#.env)
+    - [db.Connection](#db.Connection)
     - [errorHandler](#errorHandler) 
+    - [Constants](#Constants) 
     - [AdminRouter](#AdminRouter)
     - [ClientRouter](#ClientRouter)
     - [EmployeeRouter](#EmployeeRouter)
@@ -79,6 +84,7 @@
 
 Oto nasz główny plik, który uruchamiany:
 ### app <a id="app.js"></a>
+Konfigurejemy tutaj ścieżki do endpointów, middleware, połączenie z bazą.
 ```js
 const express = require('express');
 const cors = require('cors');
@@ -107,7 +113,34 @@ app.listen(port, () => {
 });
 ```
 
+### .env <a id=".env"></a>
+W poniższym pliku zapisujemy stałe potrzebne do uruchomienia naszego serwera.
+```env
+PORT=...
+CONNECTION_STRING=...
+ACCESS_TOKEN_SECRET=... 
+```
+### db.Connections <a id="db.Connection"></a>
+Plik z konfiguracją połączenia z MongoDB.
+```js
+const mongoose = require('mongoose'); 
+
+const connectDb = async () => {
+    try {
+        const connect = await mongoose.connect(process.env.CONNECTION_STRING);
+        console.log("Database connected", connect.connection.host, connect.connection.name);
+    } catch (error) {
+        console.log(error);
+        process.exit(1);
+    }
+}
+
+module.exports = connectDb;  
+```
+
+
 ### errorHandler <a id="errorHandler"></a>
+Middleware. Ułatwia on obsługę błędów w programie. W naszych controllerach obsługuje on wyjątki z `throw`.
 ```js
 const { constants } = require('../Constants');
 const errorHandler = (err, req, res, next) => {
@@ -136,8 +169,20 @@ const errorHandler = (err, req, res, next) => {
 module.exports = errorHandler; 
 ```
 
+### Constants <a id="Constants"></a>
+Stałe używane do obsługi błędów.
+```js
+exports.constants = {   
+    VALIDATION_ERROR: 400,
+    UNAUTHORIZED: 401,
+    FORBIDDEN: 403, 
+    NOT_FOUND: 404,
+    SERVER_ERROR: 500
+}
+```
 Oto nasze routery:
 ### AdminRouter <a id="AdminRouter"></a>
+Plik odpowiedzialnych za obsługę funkcjonalności Admina w systemie.
 ```js
 const express = require("express");
 const router = express.Router();
@@ -317,6 +362,7 @@ const AdminVarsSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('AdminVars', AdminVarsSchema);
 ```
+![](report_screens_3/image-1.png)
 orders <a id="orders"> </a>
 ```js
 const mongoose = require('mongoose');
@@ -410,6 +456,7 @@ module.exports = mongoose.model('Orders', orderSchema);
 
 
 ```
+![](report_screens_3/image-4.png)
 
 clients <a id="clients"> </a>
 ```js
@@ -465,7 +512,7 @@ clientSchema.index({orders_history: 1});
 
 module.exports = mongoose.model('Clients', clientSchema);
 ```
-
+![](report_screens_3/image-2.png)
 pizzas  <a id="pizzas"> </a>
 ```js
 const mongoose = require("mongoose");
@@ -507,7 +554,7 @@ const pizzaSchema = new mongoose.Schema({
 
 module.exports = mongoose.model("Pizzas", pizzaSchema);
 ```
-
+![](report_screens_3/image-5.png)
 ingredients <a id="ingredients"> </a>
 ```js
 const mongoose = require('mongoose');
@@ -532,7 +579,7 @@ const ingredientSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Ingredients', ingredientSchema);
 ```
-
+![](report_screens_3/image-6.png)
 workers <a id="workers"> </a>
 ```js
 const mongoose = require('mongoose');
@@ -580,6 +627,7 @@ workerSchema.index({orders_history: 1});
 
 module.exports = mongoose.model('Workers', workerSchema);
 ```
+![](report_screens_3/image-7.png)
 
 users <a id="users">  </a>
 (połączone przez _id z clients i workers, w users istnieje też jedno konto admina)
@@ -603,11 +651,12 @@ const userSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Users', userSchema);
 ```
-
+![](report_screens_3/image-3.png)
 gradeSchema: <a id="gradeSchema">  </a>
 ```js
 const mongoose = require('mongoose');
 const gradeSchema = new mongoose.Schema({
+    _id: false,    
     grade_food: {
         type: Number,
         min: 1,
@@ -629,7 +678,8 @@ const gradeSchema = new mongoose.Schema({
 
 module.exports = gradeSchema;
 ```
-
+Nie istnieje jako samodzielny dokument w bazie, poniżej w orderze:
+![](report_screens_3/image-8.png)
 addressSchema: <a id="addressSchema">  </a>
 ```js
 const mongoose = require('mongoose');
@@ -655,7 +705,7 @@ const addressSchema = new mongoose.Schema({
 
 module.exports = addressSchema;
 ```
-
+![](report_screens_3/image-9.png)
 ### Dodatkowe operacje, które są proste i szybkie dzięki naszemu modelowi:
 - wyświetlenie ile klient zaoszczędził na zniżkach
 - wyświetlenie ile zamówień złożył dany klient
@@ -668,7 +718,7 @@ module.exports = addressSchema;
 ### Proste operacje CRUD - ten etap projektu wykonujemy na kolekcji users
 
 ### registerClient (create) <a id="registerClient"></a>
-Tworzymy konto dla użytkownika w naszej bazie. Podajemy podstawowe potrzebne dane. Wykorzystujemy transakcję
+Tworzymy konto dla użytkownika w naszej bazie. Podajemy podstawowe potrzebne dane. Wykorzystujemy transakcję.
 
 ```js
 const registerClient = asyncHandler(async (req, res, next) => {
@@ -961,9 +1011,10 @@ nie wstawił się
 makeOrder <a id="makeOrder"> </a>
 - dodajemy zamówienie do orders, a do pól current_orders w workers i current_orders w clients dodajemy orderId
 - Można użyć tylko jednej zniżki na zamówienie, klient wybiera z której zniżki korzysta
-- Przekazujemy order_date dla większej elastyczności tworzenia danych testowych
-- Zakładamy, że o każdej porze dnia jest dostępny jakiś dostawca. Nie przyporządkowujemy go przy składaniu zamówienia, lecz gdy pizza jest w przygotowaniu, przy zmianie statusu zamówienia. Gdy żaden pracownik kuchni nie jest dostępny, nie można złożyć zamówienia. Dostawcy, gdy ustawiają swój status na inactive, oznacza to, że nie przyjmują już więcej zamówień.
+- Przekazujemy order_date dla większej elastyczności tworzenia danych testowych (automatycznie pomocne byłyby po prostu timestampsy, czasami jednak chcemy coś wprowadzić starego do bazy)
+- Zakładamy, że o każdej porze dnia jest dostępny jakiś dostawca. Nie przyporządkowujemy go przy składaniu zamówienia, lecz gdy pizza jest w przygotowaniu, przy zmianie statusu zamówienia (to znaczy, że jeżeli dostawcy nie są dostępni zamówienie będzie zablokowane na statusie przed ustawieniem dostawcy). Gdy żaden pracownik kuchni nie jest dostępny, nie można złożyć zamówienia. Dostawcy, gdy ustawiają swój status na inactive, oznacza to, że nie przyjmują już więcej zamówień (np. skończyli pracę).
 
+Funkcja pomocnicza sprawdzająca dostępność pizz
 ```js
 
 async function checkPizzasAvailability(basket, res, sessionId) {
@@ -978,7 +1029,9 @@ async function checkPizzasAvailability(basket, res, sessionId) {
     throw new Error(`Pizzas ${unavailablePizzaNames} aren't available. We can't make an order.`);
   }
 }
-
+```
+Funkcja pomocnicza znajdująca najmniej obciążonego pracownika.
+```js
 async function findEmployee(sessionId) {
 
 
@@ -998,7 +1051,9 @@ async function findEmployee(sessionId) {
   }, employees[0]);
   return bestEmployee;
 }
-
+```
+Funkcja pomocnicza obliczająca cenę zamówienia. 
+```js
 function calculateTotalPrice(basket, to_deliver, delivery_price) {
   let priceWithDiscount = 0;
   let priceWithoutDiscount = 0;
@@ -1012,12 +1067,15 @@ function calculateTotalPrice(basket, to_deliver, delivery_price) {
       { with_discount: priceWithDiscount, without_discount: priceWithoutDiscount };
 
 }
-
-
+```
+Funkcja pomocnicza sprawdzająca czy data znajduje się w przedziale dat.
+```js
 function isDateBetween(dateToCheck, startDate, endDate) {
   return dateToCheck >= startDate && dateToCheck <= endDate;
 }
-
+```
+Funkcja będą controllerem złożenia zamówienia
+```js
 const makeOrder = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
@@ -1257,6 +1315,9 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
       await Client.updateOne({_id: order.client_id},
           {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
     }
+    else {
+        throw new Error(`Invalid new status: ${new_status}`);
+    }
     await session.commitTransaction();
     res.status(201).json({message: `Order status set to ${new_status}`});
   }
@@ -1271,7 +1332,7 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
 
 
 ```
-Najpierw może złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
+Najpierw złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
 ![](report_screens_adam/image-22.png)
 Dodało się również pole w current_orders w clients:
 ![](report_screens_adam/image-23.png)
@@ -1676,7 +1737,7 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
 ```
 
 
-![](image.png)
+![](report_screens_3/image.png)
 
 
 ### mostBeneficialPizzasLastYear <a id="mostBeneficialPizzasLastYear"> </a>
@@ -1821,6 +1882,7 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
 
 
 ### getCurrentOrders (dla pracownika) <a id="getCurrentOrders"> </a>
+Chcemy umożliwić widok pracownikowi obecnie realizowanych przez niego zamówień.
 ```js
 const getCurrentOrders = asyncHandler(async (req, res, next) => {
   try {

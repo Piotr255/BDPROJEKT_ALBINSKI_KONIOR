@@ -178,6 +178,9 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
       await Client.updateOne({_id: order.client_id},
           {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
     }
+    else {
+        throw new Error(`Invalid new status: ${new_status}`);
+    }
     await session.commitTransaction();
     res.status(201).json({
       message: `Order status set to ${new_status}`,

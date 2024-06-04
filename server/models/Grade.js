@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const gradeSchema = new mongoose.Schema({
+    _id: false,
     grade_food: {
         type: Number,
         min: 1,
