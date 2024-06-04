@@ -211,6 +211,7 @@ module.exports = router;
 ```
 
 ### ClientRouter: <a id="ClientRouter"></a>
+Router odpowiedzialny za obsługę funckcjonalności klienta.
 ```js
 const express = require("express");
 const router = express.Router();
@@ -218,7 +219,8 @@ const router = express.Router();
 const { getAvailablePizzas,
   makeOrder,
   rateOrder,
-  getOrderHistory } = require("../controllers/ClientController");
+  getOrderHistory,
+  ratePizza} = require("../controllers/ClientController");
 
 const validateToken = require("../middleware/validateToken");
 const authorizeClient = require("../middleware/authorizeClient");
@@ -227,28 +229,31 @@ router.get("/available_pizzas", validateToken, authorizeClient, getAvailablePizz
 router.post("/make_order", validateToken, authorizeClient, makeOrder);
 router.patch("/rate_order", validateToken, authorizeClient, rateOrder);
 router.get("/order_history", validateToken, authorizeClient, getOrderHistory);
+router.patch("/rate_pizza", validateToken, authorizeClient, ratePizza);
 
 module.exports = router;
 ```
 
 ### EmployeeRouter: <a id="EmployeeRouter"></a>
+Router odpowiedzialny za obsługę funckcjonalności pracownika (kucharza i dostawcy).
 ```js
 const express = require("express");
 const router = express.Router();
 
-const { updateIngredientStatus, 
-  changeOrderStatus} = require("../controllers/EmployeeController");
+const { updateIngredientStatus,
+  changeOrderStatus, getCurrentOrders} = require("../controllers/EmployeeController");
 
 const validateToken = require("../middleware/validateToken");
 const authorizeWorker = require("../middleware/authorizeWorker");
 
 router.patch("/update_ingredient_status", validateToken, authorizeWorker, updateIngredientStatus);
 router.patch("/change_order_status", validateToken, authorizeWorker, changeOrderStatus);
-
+router.get("/get_current_orders", validateToken, authorizeWorker, getCurrentOrders);
 module.exports = router;
 ```
 
 ### UserRouter: <a id="UserRouter"></a>
+Router odpowiedzialny za obsługę funckcjonalności logowania i rejestracji.
 ```js
 const express = require('express');
 const router = express.Router();
@@ -256,7 +261,7 @@ const {registerUser,
   loginUser,
   currentUser,
   deleteUser,
-  changePassword} = require('../controllers/UserController');
+  changePassword, changeAddress} = require('../controllers/UserController');
 const validateToken = require('../middleware/validateToken');
 
 
@@ -265,11 +270,13 @@ router.post('/login', loginUser);
 router.get('/current', validateToken, currentUser);
 router.delete('/delete', validateToken, deleteUser);
 router.patch('/change_password', validateToken, changePassword);
+router.put('/change_address', validateToken, changeAddress);
 
 module.exports = router;
 ```
 
 ### validateToken: <a id="validateToken"></a>
+Middleware służący do weryfikacji tokenu JWT.
 ```js
 const asyncHandler  = require('express-async-handler');
 const jwt = require('jsonwebtoken');
@@ -303,6 +310,7 @@ module.exports = validateToken;
 ```
 
 ### authorizeAdmin <a id="authorizeAdmin"> </a>
+Middleware weryfikujący rolę administratora.
 ```js
 const asyncHandler  = require('express-async-handler');
 
@@ -316,6 +324,7 @@ const authorizeAdmin = asyncHandler(async (req, res, next) => {
 });
 ```
 ### authorizeClient <a id="authorizeClient"> </a>
+Middleware weryfikujący rolę klienta.
 ```js
 const asyncHandler  = require('express-async-handler');
 
@@ -332,6 +341,7 @@ module.exports = authorizeClient;
 ```
 
 ### authorizeWorker <a id="authorizeWorker"> </a>
+Middleware weryfikujący rolę pracownika.
 ```js
 const asyncHandler  = require('express-async-handler');
 
