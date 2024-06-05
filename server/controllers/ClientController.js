@@ -36,19 +36,33 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
       {
         $group: {
           _id: "$_id",
+          name: {$first: "$name"},
+          price: {$first: "$price"},
           menu_number: {$first: "$menu_number"},
+          grades: {$first: "$grades"},
+          available: {$first: "$available"},
           ingredients: {
             $push: {
               name: "$ingredient_details.name",
               vegan: "$ingredient_details.vegan",
               vegetarian: "$ingredient_details.vegetarian"
             }
-          },
-          name: {$first: "$name"},
-          price: {$first: "$price"},
-          grades: {$first: "$grades"},
-          available: {$first: "$available"}
+          }
         }
+      },
+      {
+        $addFields: {
+          average_grade: {
+            $cond: {
+              if: { $eq: ["$grades.grade_count", 0] },
+              then: 0,
+              else: { $round: [{ $divide: ["$grades.points_sum", "$grades.grade_count"] }, 2] }
+            }
+          }
+        }
+      },
+      {
+        $sort: {average_grade: -1}
       }
     ]);
     res.status(200).json(pizzas);
@@ -246,7 +260,7 @@ const rateOrder = asyncHandler(async (req, res, next) => {
           grade_food,
           grade_delivery,
           comment
-        }}});
+        }}}, {runValidators: true});
     res.status(200).json({
       message: "Order has been rated",
       grade_food,
@@ -271,6 +285,13 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
     if( !date_to ) {
       date_to = new Date();
     }
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
+    console.log(date_from, date_to);
     const id_ObjId = new ObjectId(id);
     const the_client = await Client.findOne({_id: id_ObjId});
     const result = await Order.aggregate([

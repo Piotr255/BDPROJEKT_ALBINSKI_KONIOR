@@ -9,12 +9,17 @@
 - Node.js
 
 
-
+## Wstępny opis realizacji zadania.
+Nasza pizzeria ma 4 głównych aktorów: admin, employee, deliverer, customer. Admin zarządza menu oraz ma wgląd do statystyk pizzerii. Employee i Deliverer należą do kolekcji Worker. Oni odpowiedzialni są za realizowanie zamówienia. Customer zamawia pizzę z dowozem lub na wynos. Wszystkie role, żeby korzystać z usług pizzerii muszą posiadać konto (kolekcja user).
 
 # Spis treści
 * [Szkielet projektu](#szkielet-projekt) 
+    - oprócz poniższych plików istnieją również pliki z kontrolerami dla routerów, w sprawozdaniu znajdują się po prostu wydzielone funkcje będące kontrolerami.
     - [app.js](#app.js)
+    - [.env](#.env)
+    - [db.Connection](#db.Connection)
     - [errorHandler](#errorHandler) 
+    - [Constants](#Constants) 
     - [AdminRouter](#AdminRouter)
     - [ClientRouter](#ClientRouter)
     - [EmployeeRouter](#EmployeeRouter)
@@ -67,7 +72,7 @@
 * [mostBeneficialPizzasLastYear](#mostBeneficialPizzasLastYear)
 * [getAvailablePizzas](#getAvailablePizzas)
 * [getCurrentOrders](#getCurrentOrders) (dla pracownika)
-
+* [mostGenerousClients](#mostGenerousClients)
 
 
 
@@ -79,6 +84,7 @@
 
 Oto nasz główny plik, który uruchamiany:
 ### app <a id="app.js"></a>
+Konfigurejemy tutaj ścieżki do endpointów, middleware, połączenie z bazą.
 ```js
 const express = require('express');
 const cors = require('cors');
@@ -107,7 +113,34 @@ app.listen(port, () => {
 });
 ```
 
+### .env <a id=".env"></a>
+W poniższym pliku zapisujemy stałe potrzebne do uruchomienia naszego serwera.
+```env
+PORT=...
+CONNECTION_STRING=...
+ACCESS_TOKEN_SECRET=... 
+```
+### db.Connections <a id="db.Connection"></a>
+Plik z konfiguracją połączenia z MongoDB.
+```js
+const mongoose = require('mongoose'); 
+
+const connectDb = async () => {
+    try {
+        const connect = await mongoose.connect(process.env.CONNECTION_STRING);
+        console.log("Database connected", connect.connection.host, connect.connection.name);
+    } catch (error) {
+        console.log(error);
+        process.exit(1);
+    }
+}
+
+module.exports = connectDb;  
+```
+
+
 ### errorHandler <a id="errorHandler"></a>
+Middleware. Ułatwia on obsługę błędów w programie. W naszych controllerach obsługuje on wyjątki z `throw`.
 ```js
 const { constants } = require('../Constants');
 const errorHandler = (err, req, res, next) => {
@@ -136,8 +169,20 @@ const errorHandler = (err, req, res, next) => {
 module.exports = errorHandler; 
 ```
 
+### Constants <a id="Constants"></a>
+Stałe używane do obsługi błędów.
+```js
+exports.constants = {   
+    VALIDATION_ERROR: 400,
+    UNAUTHORIZED: 401,
+    FORBIDDEN: 403, 
+    NOT_FOUND: 404,
+    SERVER_ERROR: 500
+}
+```
 Oto nasze routery:
 ### AdminRouter <a id="AdminRouter"></a>
+Plik odpowiedzialnych za obsługę funkcjonalności Admina w systemie.
 ```js
 const express = require("express");
 const router = express.Router();
@@ -166,6 +211,7 @@ module.exports = router;
 ```
 
 ### ClientRouter: <a id="ClientRouter"></a>
+Router odpowiedzialny za obsługę funckcjonalności klienta.
 ```js
 const express = require("express");
 const router = express.Router();
@@ -173,7 +219,8 @@ const router = express.Router();
 const { getAvailablePizzas,
   makeOrder,
   rateOrder,
-  getOrderHistory } = require("../controllers/ClientController");
+  getOrderHistory,
+  ratePizza} = require("../controllers/ClientController");
 
 const validateToken = require("../middleware/validateToken");
 const authorizeClient = require("../middleware/authorizeClient");
@@ -182,28 +229,31 @@ router.get("/available_pizzas", validateToken, authorizeClient, getAvailablePizz
 router.post("/make_order", validateToken, authorizeClient, makeOrder);
 router.patch("/rate_order", validateToken, authorizeClient, rateOrder);
 router.get("/order_history", validateToken, authorizeClient, getOrderHistory);
+router.patch("/rate_pizza", validateToken, authorizeClient, ratePizza);
 
 module.exports = router;
 ```
 
 ### EmployeeRouter: <a id="EmployeeRouter"></a>
+Router odpowiedzialny za obsługę funckcjonalności pracownika (kucharza i dostawcy).
 ```js
 const express = require("express");
 const router = express.Router();
 
-const { updateIngredientStatus, 
-  changeOrderStatus} = require("../controllers/EmployeeController");
+const { updateIngredientStatus,
+  changeOrderStatus, getCurrentOrders} = require("../controllers/EmployeeController");
 
 const validateToken = require("../middleware/validateToken");
 const authorizeWorker = require("../middleware/authorizeWorker");
 
 router.patch("/update_ingredient_status", validateToken, authorizeWorker, updateIngredientStatus);
 router.patch("/change_order_status", validateToken, authorizeWorker, changeOrderStatus);
-
+router.get("/get_current_orders", validateToken, authorizeWorker, getCurrentOrders);
 module.exports = router;
 ```
 
 ### UserRouter: <a id="UserRouter"></a>
+Router odpowiedzialny za obsługę funckcjonalności logowania i rejestracji.
 ```js
 const express = require('express');
 const router = express.Router();
@@ -211,7 +261,7 @@ const {registerUser,
   loginUser,
   currentUser,
   deleteUser,
-  changePassword} = require('../controllers/UserController');
+  changePassword, changeAddress} = require('../controllers/UserController');
 const validateToken = require('../middleware/validateToken');
 
 
@@ -220,11 +270,13 @@ router.post('/login', loginUser);
 router.get('/current', validateToken, currentUser);
 router.delete('/delete', validateToken, deleteUser);
 router.patch('/change_password', validateToken, changePassword);
+router.put('/change_address', validateToken, changeAddress);
 
 module.exports = router;
 ```
 
 ### validateToken: <a id="validateToken"></a>
+Middleware służący do weryfikacji tokenu JWT.
 ```js
 const asyncHandler  = require('express-async-handler');
 const jwt = require('jsonwebtoken');
@@ -258,6 +310,7 @@ module.exports = validateToken;
 ```
 
 ### authorizeAdmin <a id="authorizeAdmin"> </a>
+Middleware weryfikujący rolę administratora.
 ```js
 const asyncHandler  = require('express-async-handler');
 
@@ -271,6 +324,7 @@ const authorizeAdmin = asyncHandler(async (req, res, next) => {
 });
 ```
 ### authorizeClient <a id="authorizeClient"> </a>
+Middleware weryfikujący rolę klienta.
 ```js
 const asyncHandler  = require('express-async-handler');
 
@@ -287,6 +341,7 @@ module.exports = authorizeClient;
 ```
 
 ### authorizeWorker <a id="authorizeWorker"> </a>
+Middleware weryfikujący rolę pracownika.
 ```js
 const asyncHandler  = require('express-async-handler');
 
@@ -317,6 +372,7 @@ const AdminVarsSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('AdminVars', AdminVarsSchema);
 ```
+![](report_screens_3/image-1.png)
 orders <a id="orders"> </a>
 ```js
 const mongoose = require('mongoose');
@@ -410,6 +466,7 @@ module.exports = mongoose.model('Orders', orderSchema);
 
 
 ```
+![](report_screens_3/image-4.png)
 
 clients <a id="clients"> </a>
 ```js
@@ -465,7 +522,7 @@ clientSchema.index({orders_history: 1});
 
 module.exports = mongoose.model('Clients', clientSchema);
 ```
-
+![](report_screens_3/image-2.png)
 pizzas  <a id="pizzas"> </a>
 ```js
 const mongoose = require("mongoose");
@@ -507,7 +564,7 @@ const pizzaSchema = new mongoose.Schema({
 
 module.exports = mongoose.model("Pizzas", pizzaSchema);
 ```
-
+![](report_screens_3/image-5.png)
 ingredients <a id="ingredients"> </a>
 ```js
 const mongoose = require('mongoose');
@@ -532,7 +589,7 @@ const ingredientSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Ingredients', ingredientSchema);
 ```
-
+![](report_screens_3/image-6.png)
 workers <a id="workers"> </a>
 ```js
 const mongoose = require('mongoose');
@@ -580,6 +637,7 @@ workerSchema.index({orders_history: 1});
 
 module.exports = mongoose.model('Workers', workerSchema);
 ```
+![](report_screens_3/image-7.png)
 
 users <a id="users">  </a>
 (połączone przez _id z clients i workers, w users istnieje też jedno konto admina)
@@ -603,11 +661,12 @@ const userSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Users', userSchema);
 ```
-
+![](report_screens_3/image-3.png)
 gradeSchema: <a id="gradeSchema">  </a>
 ```js
 const mongoose = require('mongoose');
 const gradeSchema = new mongoose.Schema({
+    _id: false,    
     grade_food: {
         type: Number,
         min: 1,
@@ -629,7 +688,8 @@ const gradeSchema = new mongoose.Schema({
 
 module.exports = gradeSchema;
 ```
-
+Nie istnieje jako samodzielny dokument w bazie, poniżej w orderze:
+![](report_screens_3/image-8.png)
 addressSchema: <a id="addressSchema">  </a>
 ```js
 const mongoose = require('mongoose');
@@ -645,7 +705,7 @@ const addressSchema = new mongoose.Schema({
     },
     district: {
         type: String,
-        required: false
+        required: true
     },
     zip_code: {
         type: String,
@@ -655,7 +715,7 @@ const addressSchema = new mongoose.Schema({
 
 module.exports = addressSchema;
 ```
-
+![](report_screens_3/image-9.png)
 ### Dodatkowe operacje, które są proste i szybkie dzięki naszemu modelowi:
 - wyświetlenie ile klient zaoszczędził na zniżkach
 - wyświetlenie ile zamówień złożył dany klient
@@ -668,7 +728,7 @@ module.exports = addressSchema;
 ### Proste operacje CRUD - ten etap projektu wykonujemy na kolekcji users
 
 ### registerClient (create) <a id="registerClient"></a>
-Tworzymy konto dla użytkownika w naszej bazie. Podajemy podstawowe potrzebne dane. Wykorzystujemy transakcję
+Tworzymy konto dla użytkownika w naszej bazie. Podajemy podstawowe potrzebne dane. Wykorzystujemy transakcję.
 
 ```js
 const registerClient = asyncHandler(async (req, res, next) => {
@@ -961,9 +1021,10 @@ nie wstawił się
 makeOrder <a id="makeOrder"> </a>
 - dodajemy zamówienie do orders, a do pól current_orders w workers i current_orders w clients dodajemy orderId
 - Można użyć tylko jednej zniżki na zamówienie, klient wybiera z której zniżki korzysta
-- Przekazujemy order_date dla większej elastyczności tworzenia danych testowych
-- Zakładamy, że o każdej porze dnia jest dostępny jakiś dostawca. Nie przyporządkowujemy go przy składaniu zamówienia, lecz gdy pizza jest w przygotowaniu, przy zmianie statusu zamówienia. Gdy żaden pracownik kuchni nie jest dostępny, nie można złożyć zamówienia. Dostawcy, gdy ustawiają swój status na inactive, oznacza to, że nie przyjmują już więcej zamówień.
+- Przekazujemy order_date dla większej elastyczności tworzenia danych testowych (automatycznie pomocne byłyby po prostu timestampsy, czasami jednak chcemy coś wprowadzić starego do bazy)
+- Zakładamy, że o każdej porze dnia jest dostępny jakiś dostawca. Nie przyporządkowujemy go przy składaniu zamówienia, lecz gdy pizza jest w przygotowaniu, przy zmianie statusu zamówienia (to znaczy, że jeżeli dostawcy nie są dostępni zamówienie będzie zablokowane na statusie przed ustawieniem dostawcy). Gdy żaden pracownik kuchni nie jest dostępny, nie można złożyć zamówienia. Dostawcy, gdy ustawiają swój status na inactive, oznacza to, że nie przyjmują już więcej zamówień (np. skończyli pracę).
 
+Funkcja pomocnicza sprawdzająca dostępność pizz
 ```js
 
 async function checkPizzasAvailability(basket, res, sessionId) {
@@ -978,7 +1039,9 @@ async function checkPizzasAvailability(basket, res, sessionId) {
     throw new Error(`Pizzas ${unavailablePizzaNames} aren't available. We can't make an order.`);
   }
 }
-
+```
+Funkcja pomocnicza znajdująca najmniej obciążonego pracownika.
+```js
 async function findEmployee(sessionId) {
 
 
@@ -998,7 +1061,9 @@ async function findEmployee(sessionId) {
   }, employees[0]);
   return bestEmployee;
 }
-
+```
+Funkcja pomocnicza obliczająca cenę zamówienia. 
+```js
 function calculateTotalPrice(basket, to_deliver, delivery_price) {
   let priceWithDiscount = 0;
   let priceWithoutDiscount = 0;
@@ -1012,12 +1077,15 @@ function calculateTotalPrice(basket, to_deliver, delivery_price) {
       { with_discount: priceWithDiscount, without_discount: priceWithoutDiscount };
 
 }
-
-
+```
+Funkcja pomocnicza sprawdzająca czy data znajduje się w przedziale dat.
+```js
 function isDateBetween(dateToCheck, startDate, endDate) {
   return dateToCheck >= startDate && dateToCheck <= endDate;
 }
-
+```
+Funkcja będą controllerem złożenia zamówienia
+```js
 const makeOrder = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   await session.startTransaction();
@@ -1170,6 +1238,7 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("Order doesn't exist");
     }
+    let result_json = {};
     if (new_status === '1') {
       if (order.status === '0') {
         await Order.updateOne({_id: orderId}, {status: new_status}, {session});
@@ -1183,6 +1252,9 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
           if (deliverer) {
             await Order.updateOne({_id: orderId}, {status: new_status, deliverer_id: deliverer._id}, {session});
             await Worker.updateOne({_id: deliverer._id}, {$push: {current_orders: orderId}}, {session});
+            result_json = {
+              chosen_deliverer: deliverer._id
+            }
           }
         }
         else {
@@ -1192,37 +1264,38 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
         throw new Error(`Invalid new status. Current status is: ${order.status}`);
       }
     } else if (new_status === '3.1') {
+      if (order.status !== "2") {
+        throw new Error(`Invalid new status. Current status is: ${order.status}`);
+      }
       if (!order.to_deliver) {
         throw new Error(`Invalid new status. Collection in person. This order's to_deliver is set to ${order.to_deliver}`);
       }
-      if (order.status === "2") {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-      } else {
-        throw new Error(`Invalid new status. Current status is: ${order.status}`);
-      }
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
     } else if (new_status === '3.2') {
-      if (order.status === "2") {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-        await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
-        await Worker.updateOne({_id: order.employee_id},
-          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        await Client.updateOne({_id: order.client_id},
-            {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
-        let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
-        saved_amount = parseFloat(saved_amount.toFixed(2));
-
-        if (saved_amount > 0) {
-          await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
-        }
-        if (the_order.discount_id) {
-          await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
-        }
-      } else {
+      if (order.status !== "2") {
         throw new Error(`Invalid new status. Current status is: ${order.status}`);
       }
+      if (order.to_deliver) {
+        throw new Error(`Invalid new status. This order's to_deliver is set to ${order.to_deliver}`);
+      }
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
+      await Worker.updateOne({_id: order.employee_id},
+        {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+      await Client.updateOne({_id: order.client_id},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+      const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
+      let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
+      saved_amount = parseFloat(saved_amount.toFixed(2));
 
-    } else if (new_status === '-1') {
+      if (saved_amount > 0) {
+        await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
+      }
+      if (the_order.discount_id) {
+        await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
+      }
+    }
+    else if (new_status === '-1') {
       await Order.updateOne({_id: orderId}, {status: new_status}, {session});
       await Worker.updateOne({_id: order.employee_id}, {
         $pull: {current_orders: orderId},
@@ -1257,8 +1330,14 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
       await Client.updateOne({_id: order.client_id},
           {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
     }
+    else {
+        throw new Error(`Invalid new status: ${new_status}`);
+    }
     await session.commitTransaction();
-    res.status(201).json({message: `Order status set to ${new_status}`});
+    res.status(201).json({
+      message: `Order status set to ${new_status}`,
+      result_json
+    });
   }
   catch(err) {
     await session.abortTransaction();
@@ -1270,8 +1349,9 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
 
 
 
+
 ```
-Najpierw może złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
+Najpierw złóżmy nowe zamówienie, na razie bez dostawy, ale ze zniżką:
 ![](report_screens_adam/image-22.png)
 Dodało się również pole w current_orders w clients:
 ![](report_screens_adam/image-23.png)
@@ -1458,7 +1538,12 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
     if (!date_to) {
       date_to = new Date();
     }
-
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
     const result = await Order.aggregate([
       {
         $match: {
@@ -1470,7 +1555,7 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
         }
       },
       {
-        $group: { // po prostu grupujemy pracowników i obliczamy dla każdego średnią ocenę grade_food
+        $group: {
           _id: {
             employee_id: "$employee_id"
           },
@@ -1492,7 +1577,7 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
         $project: {
           _id: 0,
           employee_name: "$employee_details.name",
-          avg_grade_for_food: 1,
+          avg_grade_for_food: { $round: ["$avg_grade_for_food", 2] },
         }
       },
       {
@@ -1507,6 +1592,7 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
 ```
 
 Na obecny moment mamy dwa ukończone zamówienia w bazie, oba należą do tego samego pracownika, wystawmy im oceny:
@@ -1522,6 +1608,7 @@ Dodajmy jeszcze jakieś zamówienia i oceny innemu pracownikowi. Oceńmy zamówi
 
 ### getOrderHistory <a id="getOrderHistory"> </a>
 ```js
+
 const getOrderHistory = asyncHandler(async (req, res, next) => {
   try {
     const {email, id, role} = req.user;
@@ -1535,6 +1622,13 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
     if( !date_to ) {
       date_to = new Date();
     }
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
+    console.log(date_from, date_to);
     const id_ObjId = new ObjectId(id);
     const the_client = await Client.findOne({_id: id_ObjId});
     const result = await Order.aggregate([
@@ -1673,10 +1767,11 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
 ```
 
 
-![](image.png)
+![](report_screens_3/image.png)
 
 
 ### mostBeneficialPizzasLastYear <a id="mostBeneficialPizzasLastYear"> </a>
@@ -1700,6 +1795,7 @@ const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
       {
         $project: {
           pizzas: 1,
+          total_price: 1,
           order_date: 1
         }
       },
@@ -1714,11 +1810,14 @@ const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
           },
           total_profit: {
             $sum: {
-              $multiply: [
-                "$pizzas.current_price",
-                "$pizzas.count",
-                { $subtract: [1, "$pizzas.discount"] }
-              ]
+              $round: [
+                {
+                  $multiply: [
+                    "$pizzas.current_price",
+                    "$pizzas.count",
+                    { $subtract: [1, "$pizzas.discount"] }
+                  ]
+                }, 2]
             }
           }
         }
@@ -1794,19 +1893,33 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
       {
         $group: {
           _id: "$_id",
+          name: {$first: "$name"},
+          price: {$first: "$price"},
           menu_number: {$first: "$menu_number"},
+          grades: {$first: "$grades"},
+          available: {$first: "$available"},
           ingredients: {
             $push: {
               name: "$ingredient_details.name",
               vegan: "$ingredient_details.vegan",
               vegetarian: "$ingredient_details.vegetarian"
             }
-          },
-          name: {$first: "$name"},
-          price: {$first: "$price"},
-          grades: {$first: "$grades"},
-          available: {$first: "$available"}
+          }
         }
+      },
+      {
+        $addFields: {
+          average_grade: {
+            $cond: {
+              if: { $eq: ["$grades.grade_count", 0] },
+              then: 0,
+              else: { $round: [{ $divide: ["$grades.points_sum", "$grades.grade_count"] }, 2] }
+            }
+          }
+        }
+      },
+      {
+        $sort: {average_grade: -1}
       }
     ]);
     res.status(200).json(pizzas);
@@ -1821,6 +1934,7 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
 
 
 ### getCurrentOrders (dla pracownika) <a id="getCurrentOrders"> </a>
+Chcemy umożliwić widok pracownikowi obecnie realizowanych przez niego zamówień.
 ```js
 const getCurrentOrders = asyncHandler(async (req, res, next) => {
   try {
@@ -2192,7 +2306,7 @@ const rateOrder = asyncHandler(async (req, res, next) => {
           grade_food,
           grade_delivery,
           comment
-        }}});
+        }}},{runValidators: true});
     res.status(200).json({
       message: "Order has been rated",
       grade_food,
@@ -2225,3 +2339,78 @@ Zamówienie, które nie istnieje:
 I spróbujmy się jeszcze zalogować jako inny użytkownik:
 ![](report_screens_adam/image-82.png)
 ![](report_screens_adam/image-83.png)
+
+
+
+### mostGenerousClients <a id="mostGenerousClients"> </a>
+```js
+const mostGenerousClients = asyncHandler(async (req, res, next) => {
+  try {
+    let {limit, date_from, date_to} = req.body;
+    if (!limit) {
+      throw new Error("Provide the limit");
+    }
+    if (!date_from) {
+      date_from = new Date(0);
+    }
+    if (!date_to) {
+      date_to = new Date();
+    }
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
+    const result = await Order.aggregate([
+      {
+        $match: {
+          status: {$in: ['3.2', '4']},
+          order_date: {
+            $gte: date_from,
+            $lte: date_to
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$client_id",
+          total_profit_from_client: {$sum: "$total_price.with_discount"}
+        }
+      },
+      {
+        $sort: {total_profit_from_client: -1}
+      },
+      {
+        $limit: limit
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "_id",
+          foreignField: "_id",
+          as: "client_details"
+        }
+      },
+      {
+        $unwind: "$client_details"
+      },
+      {
+        $project: {
+          name: "$client_details.name",
+          address: {
+            city: "$client_details.address.city",
+            street: "$client_details.address.street",
+            zip_code: "$client_details.address.zip_code"
+          },
+          order_count: "$client_details.order_count",
+          total_profit_from_client: 1
+        }
+      }
+    ]);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+```

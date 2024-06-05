@@ -245,7 +245,12 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
     if (!date_to) {
       date_to = new Date();
     }
-
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
     const result = await Order.aggregate([
       {
         $match: {
@@ -279,7 +284,7 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
         $project: {
           _id: 0,
           employee_name: "$employee_details.name",
-          avg_grade_for_food: 1,
+          avg_grade_for_food: { $round: ["$avg_grade_for_food", 2] },
         }
       },
       {
@@ -328,11 +333,14 @@ const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
           },
           total_profit: {
             $sum: {
-              $multiply: [
-                "$pizzas.current_price",
-                "$pizzas.count",
-                { $subtract: [1, "$pizzas.discount"] }
-              ]
+              $round: [
+                {
+                  $multiply: [
+                    "$pizzas.current_price",
+                    "$pizzas.count",
+                    { $subtract: [1, "$pizzas.discount"] }
+                  ]
+                }, 2]
             }
           }
         }
@@ -393,6 +401,12 @@ const mostGenerousClients = asyncHandler(async (req, res, next) => {
     }
     if (!date_to) {
       date_to = new Date();
+    }
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
     }
     const result = await Order.aggregate([
       {
