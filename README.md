@@ -41,7 +41,6 @@ Nasza pizzeria ma 4 głównych aktorów: admin, employee, deliverer, customer. A
 
 
 
-
 ## Proste operacje CRUD
 * [registerClient](#registerClient) (transakcja)
 * [loginUser](#loginUser)
@@ -74,6 +73,8 @@ Nasza pizzeria ma 4 głównych aktorów: admin, employee, deliverer, customer. A
 * [getCurrentOrders](#getCurrentOrders) (dla pracownika)
 * [mostGenerousClients](#mostGenerousClients)
 
+### Wnioski
+* [Wnioski końcowe / dyskusja zastosowanych technik i metod:](#conclusions)
 
 
 ### Wstępne informacje: <a id="szkielet-projekt"> </a>
@@ -360,6 +361,12 @@ module.exports = authorizeWorker;
 
 
 ### Schemat bazy <a id="schema"></a>
+Komentarz do modelu:
+- Ważną kolekcją naszej bazy jest `users`. Tam przechowujemy dane logowania. Do kolekcji `workers` i `clients` wpisujemy pozostałe dane, przepisując `_id`.
+- Do przechowywania adresu, ceny zamówienia, oceny zamówienia, oceny pizzy, elementu koszyka wykorzystujemy zagnieżdżone dokumenty
+- `orders` przechowujemy w osobnej kolekcji. W `workers` i `clients` przechowujemy tablice referencji. Podjęliśmy taką decyzję ze względu na to, że zarówno klient jak i pracownicy muszą mieć dostęp do tych danych, więc zrezygnowaliśmy z bezpośredniego zagnieżdżania (dane byłyby wielokrotnie powielone). Ułatwia to też niektóre operacje, jeżeli chcemy przejrzeć po prostu zamówienia. Z perspektywy np. klienta dzięki tablicy referencji, możemy np. szybko zobaczyć obecne zamówienia (na _id jest domyślny indeks).
+
+
 adminvars <a id="adminvars"> </a>
 ```js
 const mongoose = require('mongoose');
@@ -517,9 +524,6 @@ const clientSchema = new mongoose.Schema({
     }
 });
 
-clientSchema.index({current_orders: 1});
-clientSchema.index({orders_history: 1});
-
 module.exports = mongoose.model('Clients', clientSchema);
 ```
 ![](report_screens_3/image-2.png)
@@ -631,9 +635,6 @@ const workerSchema = new mongoose.Schema({
     }
 
 });
-
-workerSchema.index({current_orders: 1});
-workerSchema.index({orders_history: 1});
 
 module.exports = mongoose.model('Workers', workerSchema);
 ```
@@ -2417,3 +2418,38 @@ const mostGenerousClients = asyncHandler(async (req, res, next) => {
 
 ```
 ![](image.png)
+
+
+### Wnioski końcowe / dyskusja zastosowanych technik i metod: <a id="conclusions"> </a>
+- Wykorzystaliśmy Mongoose do współpracy z bazą mongoDB. Ułatwia on pracę z tą bazą. Umożliwia on nakładanie różnych ograniczeń na wpisywane dane. Jest to realizowane poprzez zgłaszanie błędów w razie wpisania danych niezgodnych z regułami.
+- np.
+```js
+const mongoose = require('mongoose');
+const gradeSchema = new mongoose.Schema({
+    _id: false,
+    grade_food: {
+        type: Number,
+        min: 1,
+        max: 6,
+        required: true
+    },
+    grade_delivery: {
+        type: Number,
+        min: 1,
+        max: 6,
+        required: true
+    },
+    comment: {
+        type: String,
+        required: false,
+        maxlength: 255
+    }
+});
+
+module.exports = gradeSchema;
+```
+
+- Ważne jest również odpowiednie ograniczenie dostępu do endpointów pozwalających na dostęp do różnych zasobów. W tym celu wykorzystaliśmy klucze JWT. Dzięki użyciu middleware, ich używanie jest bezproblemowe i nie wymaga użycia nadmiarowego kodu.
+- Mongoose wykorzystaliśmy również do tworzenia transakcji. Używamy ich wtedy, kiedy zależy nam na modyfikacji przynajmniej 2 różnych kolekcji w ramach 1 operacji. Na przykład jeżeli tworzymy konto klienta, to zależy nam na tym, żeby pojawiło się ono jednocześnie w kolekcjach users i clients, a nie z powodu jakiegoś błędu np. tylko w users. Unikamy niespójności danych.
+- Wykorzystaliśmy Express do uporządkowania struktury projektu. Bardzo ułatwia on składnię, pozwala na stworzenie jasnej struktury - controllery, routery, middlewary. Middleware są szczególnie przydatne, jeżeli musimy jakiś element wielokrotnie kontrolować. Oszczędzamy sobie nadmiarowego kodu. Pomogły nam one z weryfikowaniem kluczu JWT, weryfikowaniem roli konta, obsługą błędów.
+- Do zapytań raportujących użyliśmy agregacji w Mongoose. Składniowo wyglądają one dokładnie tak samo jak w czystym języku zapytań MongoDB.
