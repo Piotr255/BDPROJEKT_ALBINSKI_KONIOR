@@ -705,7 +705,7 @@ const addressSchema = new mongoose.Schema({
     },
     district: {
         type: String,
-        required: false
+        required: true
     },
     zip_code: {
         type: String,
