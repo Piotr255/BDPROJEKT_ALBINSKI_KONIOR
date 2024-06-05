@@ -285,6 +285,13 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
     if( !date_to ) {
       date_to = new Date();
     }
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
+    console.log(date_from, date_to);
     const id_ObjId = new ObjectId(id);
     const the_client = await Client.findOne({_id: id_ObjId});
     const result = await Order.aggregate([
