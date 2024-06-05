@@ -23,6 +23,7 @@ const clientSchema = new mongoose.Schema({
         default: 0
     },
     grades: {
+        _id: false,
         type: [{ pizza_id: {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: 'Pizzas',

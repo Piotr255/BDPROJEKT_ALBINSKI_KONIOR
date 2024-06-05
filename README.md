@@ -72,7 +72,7 @@ Nasza pizzeria ma 4 głównych aktorów: admin, employee, deliverer, customer. A
 * [mostBeneficialPizzasLastYear](#mostBeneficialPizzasLastYear)
 * [getAvailablePizzas](#getAvailablePizzas)
 * [getCurrentOrders](#getCurrentOrders) (dla pracownika)
-
+* [mostGenerousClients](#mostGenerousClients)
 
 
 
@@ -1238,6 +1238,7 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
       res.status(400);
       throw new Error("Order doesn't exist");
     }
+    let result_json = {};
     if (new_status === '1') {
       if (order.status === '0') {
         await Order.updateOne({_id: orderId}, {status: new_status}, {session});
@@ -1251,6 +1252,9 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
           if (deliverer) {
             await Order.updateOne({_id: orderId}, {status: new_status, deliverer_id: deliverer._id}, {session});
             await Worker.updateOne({_id: deliverer._id}, {$push: {current_orders: orderId}}, {session});
+            result_json = {
+              chosen_deliverer: deliverer._id
+            }
           }
         }
         else {
@@ -1260,37 +1264,38 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
         throw new Error(`Invalid new status. Current status is: ${order.status}`);
       }
     } else if (new_status === '3.1') {
+      if (order.status !== "2") {
+        throw new Error(`Invalid new status. Current status is: ${order.status}`);
+      }
       if (!order.to_deliver) {
         throw new Error(`Invalid new status. Collection in person. This order's to_deliver is set to ${order.to_deliver}`);
       }
-      if (order.status === "2") {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-      } else {
-        throw new Error(`Invalid new status. Current status is: ${order.status}`);
-      }
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
     } else if (new_status === '3.2') {
-      if (order.status === "2") {
-        await Order.updateOne({_id: orderId}, {status: new_status}, {session});
-        await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
-        await Worker.updateOne({_id: order.employee_id},
-          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        await Client.updateOne({_id: order.client_id},
-            {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
-        const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
-        let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
-        saved_amount = parseFloat(saved_amount.toFixed(2));
-
-        if (saved_amount > 0) {
-          await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
-        }
-        if (the_order.discount_id) {
-          await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
-        }
-      } else {
+      if (order.status !== "2") {
         throw new Error(`Invalid new status. Current status is: ${order.status}`);
       }
+      if (order.to_deliver) {
+        throw new Error(`Invalid new status. This order's to_deliver is set to ${order.to_deliver}`);
+      }
+      await Order.updateOne({_id: orderId}, {status: new_status}, {session});
+      await Client.updateOne({_id: order.client_id}, {$inc: {order_count: 1}}, {session});
+      await Worker.updateOne({_id: order.employee_id},
+        {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+      await Client.updateOne({_id: order.client_id},
+          {$pull: {current_orders: orderId}, $push: {orders_history: orderId}}, {session});
+      const the_order = await Order.findOne({_id: orderId}, {total_price: 1, discount_id: 1}, {session});
+      let saved_amount = the_order.total_price.without_discount - the_order.total_price.with_discount;
+      saved_amount = parseFloat(saved_amount.toFixed(2));
 
-    } else if (new_status === '-1') {
+      if (saved_amount > 0) {
+        await Client.updateOne({_id: order.client_id}, {$inc: {discount_saved: saved_amount}}, {session});
+      }
+      if (the_order.discount_id) {
+        await Discount.updateOne({_id: the_order.discount_id}, {$inc: {used_count: 1}}, {session});
+      }
+    }
+    else if (new_status === '-1') {
       await Order.updateOne({_id: orderId}, {status: new_status}, {session});
       await Worker.updateOne({_id: order.employee_id}, {
         $pull: {current_orders: orderId},
@@ -1329,7 +1334,10 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
         throw new Error(`Invalid new status: ${new_status}`);
     }
     await session.commitTransaction();
-    res.status(201).json({message: `Order status set to ${new_status}`});
+    res.status(201).json({
+      message: `Order status set to ${new_status}`,
+      result_json
+    });
   }
   catch(err) {
     await session.abortTransaction();
@@ -1338,6 +1346,7 @@ const changeOrderStatus = asyncHandler(async (req, res, next) => {
     await session.endSession();
   }
 });
+
 
 
 
@@ -1529,7 +1538,12 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
     if (!date_to) {
       date_to = new Date();
     }
-
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
     const result = await Order.aggregate([
       {
         $match: {
@@ -1541,7 +1555,7 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
         }
       },
       {
-        $group: { // po prostu grupujemy pracowników i obliczamy dla każdego średnią ocenę grade_food
+        $group: {
           _id: {
             employee_id: "$employee_id"
           },
@@ -1563,7 +1577,7 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
         $project: {
           _id: 0,
           employee_name: "$employee_details.name",
-          avg_grade_for_food: 1,
+          avg_grade_for_food: { $round: ["$avg_grade_for_food", 2] },
         }
       },
       {
@@ -1578,6 +1592,7 @@ const bestRatedEmployees = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
 ```
 
 Na obecny moment mamy dwa ukończone zamówienia w bazie, oba należą do tego samego pracownika, wystawmy im oceny:
@@ -1593,6 +1608,7 @@ Dodajmy jeszcze jakieś zamówienia i oceny innemu pracownikowi. Oceńmy zamówi
 
 ### getOrderHistory <a id="getOrderHistory"> </a>
 ```js
+
 const getOrderHistory = asyncHandler(async (req, res, next) => {
   try {
     const {email, id, role} = req.user;
@@ -1606,6 +1622,13 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
     if( !date_to ) {
       date_to = new Date();
     }
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
+    console.log(date_from, date_to);
     const id_ObjId = new ObjectId(id);
     const the_client = await Client.findOne({_id: id_ObjId});
     const result = await Order.aggregate([
@@ -1744,6 +1767,7 @@ const getOrderHistory = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
 ```
 
 
@@ -1771,6 +1795,7 @@ const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
       {
         $project: {
           pizzas: 1,
+          total_price: 1,
           order_date: 1
         }
       },
@@ -1785,11 +1810,14 @@ const mostBeneficialPizzasLastYear = asyncHandler(async (req, res, next) => {
           },
           total_profit: {
             $sum: {
-              $multiply: [
-                "$pizzas.current_price",
-                "$pizzas.count",
-                { $subtract: [1, "$pizzas.discount"] }
-              ]
+              $round: [
+                {
+                  $multiply: [
+                    "$pizzas.current_price",
+                    "$pizzas.count",
+                    { $subtract: [1, "$pizzas.discount"] }
+                  ]
+                }, 2]
             }
           }
         }
@@ -1865,19 +1893,33 @@ const getAvailablePizzas = asyncHandler(async (req, res, next) => {
       {
         $group: {
           _id: "$_id",
+          name: {$first: "$name"},
+          price: {$first: "$price"},
           menu_number: {$first: "$menu_number"},
+          grades: {$first: "$grades"},
+          available: {$first: "$available"},
           ingredients: {
             $push: {
               name: "$ingredient_details.name",
               vegan: "$ingredient_details.vegan",
               vegetarian: "$ingredient_details.vegetarian"
             }
-          },
-          name: {$first: "$name"},
-          price: {$first: "$price"},
-          grades: {$first: "$grades"},
-          available: {$first: "$available"}
+          }
         }
+      },
+      {
+        $addFields: {
+          average_grade: {
+            $cond: {
+              if: { $eq: ["$grades.grade_count", 0] },
+              then: 0,
+              else: { $round: [{ $divide: ["$grades.points_sum", "$grades.grade_count"] }, 2] }
+            }
+          }
+        }
+      },
+      {
+        $sort: {average_grade: -1}
       }
     ]);
     res.status(200).json(pizzas);
@@ -2264,7 +2306,7 @@ const rateOrder = asyncHandler(async (req, res, next) => {
           grade_food,
           grade_delivery,
           comment
-        }}});
+        }}},{runValidators: true});
     res.status(200).json({
       message: "Order has been rated",
       grade_food,
@@ -2297,3 +2339,78 @@ Zamówienie, które nie istnieje:
 I spróbujmy się jeszcze zalogować jako inny użytkownik:
 ![](report_screens_adam/image-82.png)
 ![](report_screens_adam/image-83.png)
+
+
+
+### mostGenerousClients <a id="mostGenerousClients"> </a>
+```js
+const mostGenerousClients = asyncHandler(async (req, res, next) => {
+  try {
+    let {limit, date_from, date_to} = req.body;
+    if (!limit) {
+      throw new Error("Provide the limit");
+    }
+    if (!date_from) {
+      date_from = new Date(0);
+    }
+    if (!date_to) {
+      date_to = new Date();
+    }
+    if (!(date_from instanceof Date)) {
+      date_from = new Date(date_from);
+    }
+    if (!(date_to instanceof Date)) {
+      date_to = new Date(date_to);
+    }
+    const result = await Order.aggregate([
+      {
+        $match: {
+          status: {$in: ['3.2', '4']},
+          order_date: {
+            $gte: date_from,
+            $lte: date_to
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$client_id",
+          total_profit_from_client: {$sum: "$total_price.with_discount"}
+        }
+      },
+      {
+        $sort: {total_profit_from_client: -1}
+      },
+      {
+        $limit: limit
+      },
+      {
+        $lookup: {
+          from: "clients",
+          localField: "_id",
+          foreignField: "_id",
+          as: "client_details"
+        }
+      },
+      {
+        $unwind: "$client_details"
+      },
+      {
+        $project: {
+          name: "$client_details.name",
+          address: {
+            city: "$client_details.address.city",
+            street: "$client_details.address.street",
+            zip_code: "$client_details.address.zip_code"
+          },
+          order_count: "$client_details.order_count",
+          total_profit_from_client: 1
+        }
+      }
+    ]);
+    res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+```

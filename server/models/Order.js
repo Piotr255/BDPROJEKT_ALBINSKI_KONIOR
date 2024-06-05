@@ -19,6 +19,7 @@ const orderSchema = new mongoose.Schema({
     },
     pizzas: [
         {
+            _id: false,
             pizza_id: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'Pizzas',
